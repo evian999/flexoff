@@ -60,7 +60,7 @@ function LoginForm() {
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="evain"
+              placeholder="用户名"
             />
           </div>
           <div>
@@ -85,17 +85,6 @@ function LoginForm() {
             {loading ? "登录中…" : "登录"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-xs text-zinc-600">
-          默认账户{" "}
-          <code className="rounded bg-black/30 px-1.5 py-0.5 text-[var(--accent)]">
-            evain
-          </code>{" "}
-          /{" "}
-          <code className="rounded bg-black/30 px-1.5 py-0.5 text-zinc-400">
-            990423
-          </code>
-        </p>
 
         <p className="mt-4 text-center text-sm text-zinc-500">
           还没有账号？{" "}

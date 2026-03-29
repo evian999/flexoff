@@ -10,15 +10,15 @@ export type UserRecord = {
 
 const USERS_FILE = join(process.cwd(), "data", "users.json");
 
-/** 默认账户（本地种子与 Vercel 环境变量可覆盖） */
-export const DEFAULT_USERNAME = process.env.DEFAULT_AUTH_USERNAME ?? "evain";
+/** 无用户数据时的种子账户（可用环境变量覆盖） */
+export const DEFAULT_USERNAME = process.env.DEFAULT_AUTH_USERNAME ?? "evian";
 export const DEFAULT_PASSWORD = process.env.DEFAULT_AUTH_PASSWORD ?? "990423";
 
 let memoryUsers: UserRecord[] | null = null;
 
 function builtinUser(): UserRecord {
   return {
-    id: "user-evain",
+    id: "user-evian",
     username: DEFAULT_USERNAME,
     passwordHash: hashPassword(DEFAULT_PASSWORD),
   };

@@ -25,21 +25,9 @@
 
 ---
 
-## Default login (demo)
-
-| Field    | Value   |
-| -------- | ------- |
-| Username | `evain` |
-| Password | `990423` |
-
-The first login **seeds** this account (password is stored **hashed**). Override with env vars if needed:
-
-```bash
-DEFAULT_AUTH_USERNAME=you
-DEFAULT_AUTH_PASSWORD=your-secure-password
-```
-
 > **Production:** set a strong `AUTH_SECRET` (used to sign session JWTs). The repo ships with a dev fallback—**do not** rely on it in production.
+
+Optional env vars `DEFAULT_AUTH_USERNAME` and `DEFAULT_AUTH_PASSWORD` seed the **first** account when no user store exists (password is stored **hashed**). Use strong values and never commit them.
 
 ---
 
@@ -61,8 +49,8 @@ Open [http://localhost:3000](http://localhost:3000) — you will be redirected t
 | Variable                 | Required on Vercel | Description                          |
 | ------------------------ | ------------------ | ------------------------------------ |
 | `AUTH_SECRET`            | **Strongly yes**   | Secret for signing `algo-token` JWT. |
-| `DEFAULT_AUTH_USERNAME`  | No                 | Overrides default demo username.     |
-| `DEFAULT_AUTH_PASSWORD`  | No                 | Overrides default demo password.     |
+| `DEFAULT_AUTH_USERNAME`  | No                 | Bootstrap username when the user store is empty. |
+| `DEFAULT_AUTH_PASSWORD`  | No                 | Bootstrap password (hashed before save).         |
 
 ---
 
@@ -136,7 +124,7 @@ data/                         # Local JSON (gitignored when generated)
 
 ## 中文摘要
 
-**Algo Todo** 是面向算法工程师的待办应用：支持**列表 / 画布**双模式、**文件夹与标签**、完成时记录**结果与下一步**并在画布上显示连线。已加入 **登录 / 注册**（默认账号 `evain` / `990423`，密码服务端哈希存储）。本地开发使用 `data/store.json`；部署到 **Vercel** 时请配置 `AUTH_SECRET`，并注意无持久磁盘时数据仅在内存中保留。
+**Algo Todo** 是面向算法工程师的待办应用：支持**列表 / 画布**双模式、**文件夹与标签**、完成时记录**结果与下一步**并在画布上显示连线。已加入 **登录 / 注册**（密码服务端哈希存储；请自行注册或通过环境变量配置引导账户，勿在仓库中公开口令）。本地开发使用 `data/store.json`；部署到 **Vercel** 时请配置 `AUTH_SECRET`，并注意无持久磁盘时数据仅在内存中保留。
 
 ---
 
