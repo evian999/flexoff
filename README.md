@@ -1,12 +1,10 @@
-# Algo Todo
+# Taskpath
 
-**List meets graph—tasks as an experiment pipeline, not a flat checklist.**
+**List meets graph—track tasks and dependencies until everything is done.**
 
-Algo Todo is a dark, **ComfyUI**-inspired workspace for **algorithm engineers**: switch between a crisp **list** and a **node-graph canvas** (`@xyflow/react`), with folders, tags, and auth. Data is designed around **Postgres on Supabase** and a **serverless** host (e.g. Vercel)—so your graph survives redeploys instead of living only in ephemeral memory.
+Taskpath is a dark, **ComfyUI**-inspired workspace: switch between a crisp **list** and a **node-graph canvas** (`@xyflow/react`), with folders, tags, and auth. Data is designed around **Postgres on Supabase** and a **serverless** host (e.g. Vercel)—so your graph survives redeploys instead of living only in ephemeral memory.
 
-[Features](#features) · [Docs & links](#documentation-and-links) · [Environment](#environment-variables) · [Contributing](#contributing) · [中文](#中文摘要) · [Issues](https://github.com/evian999/algo-todo-list/issues)
-
-
+[Features](#features) · [Docs & links](#documentation-and-links) · [Environment](#environment-variables) · [Contributing](#contributing) · [中文](#中文摘要) · [Issues](https://github.com/evian999/taskpath/issues)
 
 **List** · **Canvas** · **Folders & tags** · **Auth**
 
@@ -16,7 +14,7 @@ Algo Todo is a dark, **ComfyUI**-inspired workspace for **algorithm engineers**:
 
 - [Features](#features)
 - [Built with](#built-with)
-- [Why Algo Todo?](#why-algo-todo)
+- [Why Taskpath?](#why-taskpath)
 - [Documentation and links](#documentation-and-links)
 - [Security](#security)
 - [Environment variables](#environment-variables)
@@ -48,11 +46,11 @@ Algo Todo is a dark, **ComfyUI**-inspired workspace for **algorithm engineers**:
 
 ---
 
-## Why Algo Todo?
+## Why Taskpath?
 
-Many teams outgrow a flat todo list when work looks like a **graph**: dependencies, ablations, “what we ran” and “what’s next.” Pure canvas tools are expressive; on **serverless** hosts, anything that only lives in memory or on disk disappears after a cold start.
+Many teams outgrow a flat todo list when work looks like a **graph**: dependencies, “what we ran” and “what’s next.” Pure canvas tools are expressive; on **serverless** hosts, anything that only lives in memory or on disk disappears after a cold start.
 
-Algo Todo sits in the middle:
+Taskpath sits in the middle:
 
 1. **Relational Postgres (Supabase)** — tasks, folders, tags, groups, edges, and layout are **normalized rows** per user. A single RPC (`replace_user_app_data`) applies a full snapshot in **one transaction**, so list and graph do not drift apart.
 2. **Serverless-friendly** — no VM to patch; connect env vars and ship.
@@ -119,7 +117,7 @@ supabase/migrations/
 
 Contributions are welcome—bugfixes, docs, and small UX improvements especially.
 
-- **Bugs:** [open an issue](https://github.com/evian999/algo-todo-list/issues/new) with steps to reproduce if you can.
+- **Bugs:** [open an issue](https://github.com/evian999/taskpath/issues/new) with steps to reproduce if you can.
 - **Features:** describe your workflow (list vs canvas, teams, sync); larger ideas are easier to align on before a big PR.
 
 If the project grows, we can add a `CONTRIBUTING.md` with build and PR conventions (similar to [Logseq](https://github.com/logseq/logseq/blob/master/CONTRIBUTING.md) / [MarkText](https://github.com/marktext/marktext/blob/develop/CONTRIBUTING.md) style guides).
@@ -128,13 +126,13 @@ If the project grows, we can add a `CONTRIBUTING.md` with build and PR conventio
 
 ## Inspiration
 
-UX and metaphors owe a debt to **node-based** tools (e.g. **ComfyUI**-style layouts) and to **outliner / graph** note workflows (think **Logseq**-style linking, even though Algo Todo is not a notes app).
+UX and metaphors owe a debt to **node-based** tools (e.g. **ComfyUI**-style layouts) and to **outliner / graph** note workflows (think **Logseq**-style linking, even though Taskpath is not a notes app).
 
 ---
 
 ## 中文摘要
 
-**Algo Todo**：面向算法与实验场景的待办应用——**列表 / 画布**双模式、**文件夹与标签**、完成时可记录**结果与下一步**并保持连线同步。数据侧推荐 **Supabase Postgres**（按用户关系存储）；在 **Vercel** 等无持久磁盘环境建议同时配置 **Upstash Redis**（`UPSTASH_REDIS_REST_`*）以持久化**登录账号**。SQL 请在 Supabase 中**按顺序**执行 `supabase/migrations/` 下三个文件；环境变量见上文及 `[.env.example](.env.example)`（`**SUPABASE_SERVICE_ROLE_KEY` 须为 service_role，勿用 publishable/anon**）。
+**Taskpath**：**列表 / 画布**双模式待办，可记录**结果与下一步**并保持依赖连线，适合把事一路跟到收尾。数据侧推荐 **Supabase Postgres**（按用户关系存储）；在 **Vercel** 等无持久磁盘环境建议同时配置 **Upstash Redis**（`UPSTASH_REDIS_REST_`*）以持久化*登录账号*。SQL 请在 Supabase 中**按顺序**执行 `supabase/migrations/` 下三个文件；环境变量见上文及 `[.env.example](.env.example)`（`**SUPABASE_SERVICE_ROLE_KEY` 须为 service_role，勿用 publishable/anon**）。
 
 ---
 

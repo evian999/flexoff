@@ -77,7 +77,7 @@ export function AppClient() {
       <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-bg)]/90 px-4 backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-sm font-semibold tracking-tight text-zinc-100">
-            Algo Todo
+            Taskpath
           </span>
           <span className="hidden text-xs text-zinc-600 sm:inline">
             算法工程师任务流

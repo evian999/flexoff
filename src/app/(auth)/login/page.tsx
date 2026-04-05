@@ -46,7 +46,7 @@ function LoginForm() {
           <Sparkles className="h-7 w-7 text-[var(--accent)]" />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-          Algo Todo
+          Taskpath
         </h1>
         <p className="mt-1 text-sm text-zinc-500">算法工程师任务流 · 登录</p>
       </div>

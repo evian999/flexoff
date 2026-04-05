@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const COOKIE = "algo-token";
+const COOKIE = "taskpath-token";
 
 function getSecretKey() {
   return new TextEncoder().encode(

@@ -10,7 +10,8 @@ import {
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "algo-theme";
+const STORAGE_KEY = "taskpath-theme";
+const STORAGE_KEY_LEGACY = "algo-theme";
 
 type Ctx = {
   theme: Theme;
@@ -29,7 +30,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      let stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+      if (stored !== "light" && stored !== "dark") {
+        stored = localStorage.getItem(STORAGE_KEY_LEGACY) as Theme | null;
+        if (stored === "light" || stored === "dark") {
+          localStorage.setItem(STORAGE_KEY, stored);
+          localStorage.removeItem(STORAGE_KEY_LEGACY);
+        }
+      }
       if (stored === "light" || stored === "dark") {
         setThemeState(stored);
         applyTheme(stored);

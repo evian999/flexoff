@@ -16,35 +16,42 @@ function redisClient(): Redis | null {
   return new Redis({ url, token });
 }
 
+const REDIS_SCAN_PREFIXES: { match: string; strip: string }[] = [
+  { match: "taskpath:v1:*", strip: "taskpath:v1:" },
+  { match: "algo-todo:v1:*", strip: "algo-todo:v1:" },
+];
+
 async function findUserIdByTokenRedisScan(token: string): Promise<string | null> {
   const r = redisClient();
   if (!r) return null;
-  let cursor: string | number = 0;
-  for (;;) {
-    const scanResult: RedisScanPage = await r.scan(cursor, {
-      match: "algo-todo:v1:*",
-      count: 100,
-    });
-    const nextCursor = scanResult[0];
-    const keys = scanResult[1];
-    for (const key of keys) {
-      const raw = await r.get(key);
-      if (raw == null) continue;
-      const str = typeof raw === "string" ? raw : JSON.stringify(raw);
-      let data: ReturnType<typeof parseAppData>;
-      try {
-        data = parseAppData(JSON.parse(str));
-      } catch {
-        continue;
+  for (const { match, strip } of REDIS_SCAN_PREFIXES) {
+    let cursor: string | number = 0;
+    for (;;) {
+      const scanResult: RedisScanPage = await r.scan(cursor, {
+        match,
+        count: 100,
+      });
+      const nextCursor = scanResult[0];
+      const keys = scanResult[1];
+      for (const key of keys) {
+        const raw = await r.get(key);
+        if (raw == null) continue;
+        const str = typeof raw === "string" ? raw : JSON.stringify(raw);
+        let data: ReturnType<typeof parseAppData>;
+        try {
+          data = parseAppData(JSON.parse(str));
+        } catch {
+          continue;
+        }
+        const th = data.preferences?.taskHttpApi;
+        if (th?.enabled && th.token === token) {
+          const userId = key.replace(strip, "");
+          if (userId) return userId;
+        }
       }
-      const th = data.preferences?.taskHttpApi;
-      if (th?.enabled && th.token === token) {
-        const userId = key.replace("algo-todo:v1:", "");
-        return userId || null;
-      }
+      if (nextCursor === "0") break;
+      cursor = nextCursor;
     }
-    if (nextCursor === "0") break;
-    cursor = nextCursor;
   }
   return null;
 }

@@ -1,4 +1,4 @@
--- Algo Todo：按用户分区的任务 / 文件夹 / 标签 / 画布布局（关系型）
+-- Taskpath：按用户分区的任务 / 文件夹 / 标签 / 画布布局（关系型）
 -- 在 Supabase SQL Editor 中执行整段，或使用 supabase db push
 
 create table if not exists public.folders (

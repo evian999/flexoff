@@ -41,7 +41,7 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
           创建账号
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">加入 Algo Todo</p>
+        <p className="mt-1 text-sm text-zinc-500">加入 Taskpath</p>
       </div>
 
       <div className="w-full max-w-sm rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/90 p-8 shadow-2xl backdrop-blur-xl">
