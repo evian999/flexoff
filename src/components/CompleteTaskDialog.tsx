@@ -47,29 +47,27 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="md-scrim fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="complete-dialog-title"
       onClick={onClose}
     >
       <div
-        className="min-w-0 w-full max-w-lg rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 shadow-2xl shadow-cyan-500/5"
+        className="min-w-0 w-full max-w-lg border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] p-5 md-corner-xl"
+        style={{ boxShadow: "var(--md-sys-elevation-shadow-dialog)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          id="complete-dialog-title"
-          className="text-base font-semibold text-zinc-100"
-        >
+        <h2 id="complete-dialog-title" className="md-type-title-m">
           完成任务
         </h2>
-        <p className="mt-1 text-xs text-zinc-500">{task.title}</p>
+        <p className="mt-1 md-type-body-s">{task.title}</p>
 
-        <label className="mt-4 block text-xs font-medium text-zinc-400">
+        <label className="mt-4 block md-type-label-m font-medium">
           完成结果
         </label>
         <textarea
-          className="mt-1.5 w-full rounded-lg border border-zinc-700/80 bg-[var(--bg-deep)] px-3 py-2 text-sm text-zinc-200 outline-none focus:border-[var(--accent)]"
+          className="md-field md-focus-ring mt-1.5 w-full px-3 py-2 md-type-body-m"
           rows={4}
           placeholder="记录实验结论、指标、复盘…"
           value={result}
@@ -78,10 +76,10 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
 
         <div className="mt-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">下一步目标</span>
+            <span className="md-type-label-m font-medium">下一步目标</span>
             <button
               type="button"
-              className="text-xs text-[var(--accent)] hover:underline"
+              className="md-btn-text md-focus-ring px-2 py-1 text-xs"
               onClick={() =>
                 setSteps((s) => [...s, { text: "", linkTaskId: undefined }])
               }
@@ -89,19 +87,20 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
               + 添加一行
             </button>
           </div>
-          <p className="mt-1 text-[10px] text-zinc-600">
-            描述新任务时可输入 <code className="text-zinc-500">#标签名</code>{" "}
+          <p className="mt-1 text-[0.625rem] leading-4 text-md-on-surface-variant">
+            描述新任务时可输入{" "}
+            <code className="text-md-on-surface-variant/90">#标签名</code>{" "}
             插入标签（与列表输入一致）。
           </p>
           <ul className="mt-2 space-y-2">
             {steps.map((row, i) => (
               <li
                 key={i}
-                className="flex min-w-0 flex-col gap-2 rounded-lg border border-zinc-800/80 bg-black/20 p-2 sm:flex-row sm:items-center"
+                className="flex min-w-0 flex-col gap-2 border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-high)] p-2 md-corner-md sm:flex-row sm:items-center"
               >
                 <TagHashTextInput
                   suggestAbove
-                  className="min-w-0 flex-1 rounded-md border border-zinc-700/60 bg-[var(--bg-deep)] px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-[var(--accent)]"
+                  className="md-field md-focus-ring min-w-0 flex-1 px-2 py-1.5 md-type-body-m"
                   placeholder="描述下一步…（# 选标签）"
                   value={row.text}
                   tags={tags}
@@ -113,7 +112,7 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
                 />
                 <div className="min-w-0 w-full sm:w-auto sm:max-w-[min(100%,12rem)] sm:shrink-0">
                   <select
-                    className="w-full max-w-full rounded-md border border-zinc-700/60 bg-[var(--bg-deep)] px-2 py-1.5 text-xs text-zinc-300 outline-none focus:border-[var(--accent)]"
+                    className="md-field md-focus-ring w-full max-w-full px-2 py-1.5 md-type-body-s text-md-on-surface"
                     title={
                       row.linkTaskId
                         ? others.find((t) => t.id === row.linkTaskId)?.title
@@ -145,14 +144,14 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5"
+            className="md-btn-outlined md-focus-ring px-4 py-2 md-type-body-m"
             onClick={onClose}
           >
             取消
           </button>
           <button
             type="button"
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-deep)] hover:brightness-110"
+            className="md-btn-filled md-focus-ring px-4 py-2 md-type-body-m"
             onClick={submit}
           >
             确认完成

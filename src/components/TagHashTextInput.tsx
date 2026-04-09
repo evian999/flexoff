@@ -31,6 +31,9 @@ type Props = {
   suggestAbove?: boolean;
   /** 内部处理 # 菜单快捷键之后调用（例如回车提交外层表单） */
   onInputKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  autoFocus?: boolean;
+  /** 输入框失焦时调用（建议列表内 mousedown 会 preventDefault，一般不会误触发） */
+  onInputBlur?: () => void;
 };
 
 export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
@@ -43,6 +46,8 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
       className,
       suggestAbove,
       onInputKeyDown,
+      autoFocus,
+      onInputBlur,
     },
     ref,
   ) {
@@ -132,10 +137,10 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
             <li key={t.id}>
               <button
                 type="button"
-                className={`block w-full px-3 py-2 text-left text-sm ${
+                className={`block w-full px-3 py-2 text-left md-type-body-m ${
                   i === hashMenu.highlight
-                    ? "bg-[var(--accent)]/20 text-zinc-100"
-                    : "text-zinc-300 hover:bg-white/5"
+                    ? "bg-[var(--md-sys-color-primary-container)] text-md-on-primary-container"
+                    : "text-md-on-surface md-state-hover"
                 }`}
                 onMouseEnter={() =>
                   setHashMenu((h) => (h ? { ...h, highlight: i } : h))
@@ -160,6 +165,7 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
           ref={setInputRef}
           className={inputClassName}
           placeholder={placeholder}
+          autoFocus={autoFocus}
           value={value}
           onChange={(e) => {
             const v = e.target.value;
@@ -210,12 +216,13 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
             onInputKeyDown?.(e);
           }}
           onBlur={() => {
+            onInputBlur?.();
             window.setTimeout(() => setHashMenu(null), 150);
           }}
         />
         {showSuggestions && suggestAbove ? (
           <ul
-            className="absolute bottom-full z-40 mb-1 max-h-48 w-full overflow-y-auto rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] py-1 shadow-xl"
+            className="absolute bottom-full z-40 mb-1 max-h-48 w-full overflow-y-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
             onMouseDown={(e) => e.preventDefault()}
           >
             {suggestionList}
@@ -226,7 +233,7 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
         typeof document !== "undefined" ? (
           createPortal(
             <ul
-              className="z-[9998] max-h-48 overflow-y-auto rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] py-1 shadow-xl"
+              className="z-[9998] max-h-48 overflow-y-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
               style={{
                 position: "fixed",
                 top: hashMenuPos.top,

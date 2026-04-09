@@ -6,6 +6,7 @@ import type {
   LayoutState,
   NavFolderId,
   NextStepInput,
+  Tag,
   Task,
   TaskGroup,
   TaskPriority,
@@ -14,11 +15,16 @@ import type {
 } from "./types";
 import {
   INBOX_FOLDER_KEY,
+  allCanvasFolderLaneKeys,
+  defaultFolderRectForKey,
   defaultInboxRect,
   emptyAppData,
   taskFolderKey,
 } from "./types";
-import { defaultAbsolutePositionInFolder } from "@/lib/canvas-layout";
+import {
+  defaultSphericalPositionInFolder,
+  taskHasAnyEdge,
+} from "@/lib/canvas-layout";
 import {
   computeGroupRectFromTaskPositions,
   mergeFolderRectsWithTaskBounds,
@@ -27,7 +33,11 @@ import {
 } from "@/lib/folder-fit";
 import { visibleTaskIdSet } from "@/lib/flow-build";
 import { parseAppData } from "@/lib/validate";
-import { paletteColorForTagIndex, parseTaskDraft } from "@/lib/tag-draft";
+import {
+  listUnknownHashTagNamesInDraft,
+  paletteColorForTagIndex,
+  parseTaskDraft,
+} from "@/lib/tag-draft";
 
 const SAVE_MS = 400;
 
@@ -59,7 +69,7 @@ function mergeFoldersWithMaybePack(
     return { folderRects, positions, groupRects };
   }
   return packFolderLanesNoOverlapForAllView(
-    [INBOX_FOLDER_KEY, ...ctx.folders.map((f) => f.id)],
+    allCanvasFolderLaneKeys(ctx.folders),
     folderRects,
     ctx.tasks,
     ctx.groups,
@@ -80,6 +90,11 @@ type AppState = AppData & {
   mode: "list" | "canvas";
   navFolderId: NavFolderId;
   navTagId: string | null;
+  /** 列表模式搜索（不入库，仅前端筛选） */
+  listSearchQuery: string;
+  listSearchOpen: boolean;
+  setListSearchQuery: (q: string) => void;
+  setListSearchOpen: (open: boolean) => void;
   setMode: (m: "list" | "canvas") => void;
   setNavFolderId: (id: NavFolderId) => void;
   setNavTagId: (id: string | null) => void;
@@ -88,7 +103,12 @@ type AppState = AppData & {
   addTask: (
     title: string,
     position?: Vec2,
-    opts?: { folderId?: string; tagIds?: string[]; priority?: TaskPriority },
+    opts?: {
+      /** 未传则按侧栏导航；传 `null` 表示显式收件箱 */
+      folderId?: string | null;
+      tagIds?: string[];
+      priority?: TaskPriority;
+    },
   ) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
@@ -112,6 +132,10 @@ type AppState = AppData & {
   removeGroup: (groupId: string) => void;
   updateGroupName: (groupId: string, name: string) => void;
   syncCanvasLayout: (nodes: Node[]) => void;
+  /** 批量改任务所属文件夹并立刻按任务包盒重算各栏尺寸（画布拖放栏外/栏间用） */
+  assignTaskFoldersAndRefitLanes: (
+    updates: { taskId: string; folderId: string | undefined }[],
+  ) => void;
   addFolder: (name: string) => void;
   updateFolder: (
     folderId: string,
@@ -153,8 +177,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: "list",
   navFolderId: "all",
   navTagId: null,
+  listSearchQuery: "",
+  listSearchOpen: false,
 
-  setMode: (m) => set({ mode: m }),
+  setListSearchQuery: (q) => {
+    set({ listSearchQuery: q });
+  },
+
+  setListSearchOpen: (open) => {
+    set({ listSearchOpen: open });
+  },
+
+  setMode: (m) =>
+    set((s) => ({
+      mode: m,
+      ...(m === "canvas" ? { listSearchOpen: false } : {}),
+    })),
 
   setNavFolderId: (id) => {
     if (id !== "all") {
@@ -172,7 +210,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         vis,
       );
       const packed = packFolderLanesNoOverlapForAllView(
-        [INBOX_FOLDER_KEY, ...s.folders.map((f) => f.id)],
+        allCanvasFolderLaneKeys(s.folders),
         merged,
         s.tasks,
         s.groups,
@@ -207,6 +245,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       preferences: data.preferences ?? {},
       navFolderId: "all",
       navTagId: null,
+      listSearchQuery: "",
+      listSearchOpen: false,
       saveError: null,
     });
     get().scheduleSave();
@@ -259,7 +299,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         vis,
       );
       const packed = packFolderLanesNoOverlapForAllView(
-        [INBOX_FOLDER_KEY, ...data.folders.map((f) => f.id)],
+        allCanvasFolderLaneKeys(data.folders),
         merged,
         data.tasks,
         data.groups,
@@ -329,10 +369,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addTask: (title, position, opts) => {
-    const folderFromOpts = opts?.folderId;
-    const folderFromNav = resolveNavToTaskFolderId(get().navFolderId);
-    const folderId =
-      folderFromOpts !== undefined ? folderFromOpts : folderFromNav;
+    let folderId: string | undefined;
+    if (
+      opts !== undefined &&
+      Object.prototype.hasOwnProperty.call(opts, "folderId")
+    ) {
+      const v = opts.folderId;
+      folderId =
+        v === null || v === undefined || v === ""
+          ? undefined
+          : v;
+    } else {
+      folderId = resolveNavToTaskFolderId(get().navFolderId);
+    }
 
     const rawTagIds = opts?.tagIds?.filter(Boolean) ?? [];
     const tagIds = [...new Set(rawTagIds)];
@@ -354,7 +403,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         positions[t.id] = { ...position };
       } else {
         const sameFolder = s.tasks.filter((x) => taskFolderKey(x) === fk);
-        positions[t.id] = defaultAbsolutePositionInFolder(fr, sameFolder.length);
+        const inFolderSorted = [...sameFolder, t].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        );
+        const isolatedSorted = inFolderSorted.filter(
+          (x) => !taskHasAnyEdge(x.id, s.edges),
+        );
+        const connectedSorted = inFolderSorted.filter((x) =>
+          taskHasAnyEdge(x.id, s.edges),
+        );
+        const splitLanes =
+          isolatedSorted.length > 0 && connectedSorted.length > 0;
+        const slotIndex = Math.max(
+          0,
+          isolatedSorted.findIndex((x) => x.id === t.id),
+        );
+        positions[t.id] = defaultSphericalPositionInFolder(
+          fr,
+          slotIndex,
+          isolatedSorted.length,
+          splitLanes ? "left" : "full",
+        );
       }
       const tasksNext = [t, ...s.tasks];
       const vis = canvasLayoutVisibleIds(tasksNext, s.navFolderId, s.edges);
@@ -434,6 +503,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       let cursor = 0;
       const base = positions[id] ?? { x: 120, y: 120 };
 
+      let tagsMut: Tag[] | undefined;
+
+      const ensureTagsFromDraft = (draft: string) => {
+        const cur = tagsMut ?? s.tags;
+        const unknown = listUnknownHashTagNamesInDraft(draft, cur);
+        if (unknown.length === 0) return;
+        if (!tagsMut) tagsMut = [...s.tags];
+        for (const name of unknown) {
+          const idx = tagsMut.length;
+          tagsMut.push({
+            id: newId(),
+            name: name.trim() || "标签",
+            color: paletteColorForTagIndex(idx),
+          });
+        }
+      };
+
+      const tagsForParse = () => tagsMut ?? s.tags;
+
       const updated = s.tasks.map((x) =>
         x.id === id
           ? { ...x, completedAt, result: result.trim() || undefined }
@@ -443,8 +531,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       for (const step of nextSteps) {
         const text = step.text.trim();
         if (step.linkTaskId) {
+          if (text) ensureTagsFromDraft(text);
           const { title: linkLabel } = text
-            ? parseTaskDraft(text, s.tags)
+            ? parseTaskDraft(text, tagsForParse())
             : { title: "" };
           const edgeLabel =
             linkLabel.trim() || (text ? text : undefined);
@@ -455,9 +544,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             ...(edgeLabel ? { label: edgeLabel } : {}),
           });
         } else if (text) {
+          ensureTagsFromDraft(text);
           const { title: stepTitle, tagIds: parsedTags } = parseTaskDraft(
             text,
-            s.tags,
+            tagsForParse(),
           );
           const mergedTagIds = [
             ...new Set([...(inheritTags ?? []), ...parsedTags]),
@@ -490,6 +580,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         tasks: [...newTasks, ...updated],
         edges: [...s.edges, ...newEdges],
         layout: { ...s.layout, positions },
+        ...(tagsMut ? { tags: tagsMut } : {}),
       };
     });
     get().scheduleSave();
@@ -574,8 +665,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const firstId = sorted[0]!;
       const anchor = positions[firstId] ?? { x: 120, y: 120 };
-      const gapX = 290;
-      const gapY = 112;
+      const gapX = 252;
+      const gapY = 96;
 
       for (let i = 0; i < sorted.length; i++) {
         const id = sorted[i]!;
@@ -888,6 +979,48 @@ export const useAppStore = create<AppState>((set, get) => ({
           : t,
       ),
     }));
+    get().scheduleSave();
+  },
+
+  assignTaskFoldersAndRefitLanes: (updates) => {
+    if (!updates.length) return;
+    set((s) => {
+      const u = new Map(
+        updates.map((x) => [x.taskId, x.folderId] as const),
+      );
+      const tasks = s.tasks.map((t) => {
+        if (!u.has(t.id)) return t;
+        const fid = u.get(t.id);
+        return {
+          ...t,
+          ...(fid ? { folderId: fid } : { folderId: undefined }),
+        };
+      });
+      const vis = canvasLayoutVisibleIds(tasks, s.navFolderId, s.edges);
+      const merged = mergeFolderRectsWithTaskBounds(
+        s.layout.folderRects,
+        tasks,
+        s.groups,
+        s.layout.positions,
+        s.layout.groupRects,
+        vis,
+      );
+      const packed = mergeFoldersWithMaybePack(
+        { ...s, tasks },
+        merged,
+        s.layout.positions,
+        s.layout.groupRects,
+      );
+      return {
+        tasks,
+        layout: {
+          ...s.layout,
+          folderRects: packed.folderRects,
+          positions: packed.positions,
+          groupRects: packed.groupRects,
+        },
+      };
+    });
     get().scheduleSave();
   },
 

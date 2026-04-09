@@ -1,20 +1,27 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
+  Archive,
   FolderOpen,
   Inbox,
   LayoutGrid,
+  PanelLeftClose,
   Pencil,
   Plus,
   Tag,
   Trash2,
 } from "lucide-react";
-import { INBOX_FOLDER_KEY, type NavFolderId } from "@/lib/types";
+import { ARCHIVE_FOLDER_KEY, INBOX_FOLDER_KEY, type NavFolderId } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import { resolveTagColor } from "@/lib/tag-draft";
 
-export function ListSidebar() {
+type ListSidebarProps = {
+  onRequestCollapse?: () => void;
+};
+
+export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
+  const tasks = useAppStore((s) => s.tasks);
   const folders = useAppStore((s) => s.folders);
   const tags = useAppStore((s) => s.tags);
   const navFolderId = useAppStore((s) => s.navFolderId);
@@ -37,42 +44,107 @@ export function ListSidebar() {
   const [tagEditName, setTagEditName] = useState("");
   const [tagEditColor, setTagEditColor] = useState("");
 
-  const navBtn = (id: NavFolderId, label: string, icon: ReactNode) => (
+  const { allCount, inboxCount, archiveCount, folderCounts, tagCounts } =
+    useMemo(() => {
+    const folderCounts: Record<string, number> = Object.fromEntries(
+      folders.map((f) => [f.id, 0]),
+    );
+    const tagCounts: Record<string, number> = Object.fromEntries(
+      tags.map((t) => [t.id, 0]),
+    );
+    let inboxCount = 0;
+    let archiveCount = 0;
+    for (const task of tasks) {
+      if (!task.folderId) inboxCount += 1;
+      else if (task.folderId === ARCHIVE_FOLDER_KEY) archiveCount += 1;
+      else if (folderCounts[task.folderId] !== undefined) {
+        folderCounts[task.folderId] += 1;
+      }
+      for (const tid of task.tagIds ?? []) {
+        if (tagCounts[tid] !== undefined) tagCounts[tid] += 1;
+      }
+    }
+    return {
+      allCount: tasks.length,
+      inboxCount,
+      archiveCount,
+      folderCounts,
+      tagCounts,
+    };
+  }, [tasks, folders, tags]);
+
+  const countCol =
+    "flex h-full min-h-[2.25rem] w-[2.25rem] shrink-0 items-center justify-end tabular-nums text-[0.625rem] leading-none text-md-on-surface-variant";
+
+  const navBtn = (
+    id: NavFolderId,
+    label: string,
+    icon: ReactNode,
+    count: number,
+  ) => (
     <button
       key={String(id)}
       type="button"
       onClick={() => setNavFolderId(id)}
-      className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${
+      className={`md-nav-item grid w-full grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-x-2 px-2 py-0 text-left ${
         navFolderId === id
-          ? "bg-[var(--accent)]/20 text-[var(--accent)]"
-          : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+          ? "md-nav-item--selected"
+          : "md-nav-item--default"
       }`}
     >
-      {icon}
-      <span className="truncate">{label}</span>
+      <span className="flex min-w-0 items-center gap-2 py-2">
+        {icon}
+        <span className="truncate">{label}</span>
+      </span>
+      <span
+        className={`${countCol} ${
+          navFolderId === id ? "text-md-on-primary-container/80" : ""
+        }`}
+      >
+        {count}
+      </span>
     </button>
   );
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-bg)]/80 backdrop-blur-sm">
-      <div className="border-b border-[var(--panel-border)] p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-          <LayoutGrid className="h-3 w-3" />
-          文件夹视图
+    <aside className="flex w-72 shrink-0 flex-col border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 backdrop-blur-sm sm:w-80">
+      <div className="border-b border-[var(--md-sys-color-outline)] p-3">
+        <p className="md-type-label-s mb-2 flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <LayoutGrid className="h-3 w-3 shrink-0" />
+            <span className="truncate">文件夹视图</span>
+          </span>
+          {onRequestCollapse ? (
+            <button
+              type="button"
+              title="收起侧栏"
+              aria-label="收起侧栏"
+              className="md-btn-tonal md-focus-ring shrink-0 p-1.5"
+              onClick={onRequestCollapse}
+            >
+              <PanelLeftClose className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </p>
         <nav className="flex flex-col gap-0.5">
-          {navBtn("all", "全部任务", <LayoutGrid className="h-3.5 w-3.5 shrink-0 opacity-70" />)}
+          {navBtn(
+            "all",
+            "全部任务",
+            <LayoutGrid className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            allCount,
+          )}
           {navBtn(
             INBOX_FOLDER_KEY,
             "收件箱",
             <Inbox className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            inboxCount,
           )}
           {folders.map((f) => (
             <div key={f.id} className="group flex flex-col gap-1 rounded-lg py-0.5">
               {editingFolderId === f.id ? (
-                <div className="flex flex-col gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--bg-deep)] p-2">
+                <div className="flex flex-col gap-1.5 md-corner-md border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-low)] p-2">
                   <input
-                    className="w-full rounded border border-zinc-700/60 bg-[var(--panel-bg)] px-2 py-1 text-xs text-zinc-200 outline-none focus:border-[var(--accent)]"
+                    className="md-field md-focus-ring w-full px-2 py-1 md-type-body-s"
                     value={folderEditName}
                     onChange={(e) => setFolderEditName(e.target.value)}
                     placeholder="文件夹名称"
@@ -88,17 +160,17 @@ export function ListSidebar() {
                       if (e.key === "Escape") setEditingFolderId(null);
                     }}
                   />
-                  <label className="flex items-center gap-2 text-[10px] text-zinc-500">
+                  <label className="flex items-center gap-2 md-type-label-m">
                     颜色
                     <input
                       type="color"
-                      className="h-6 w-10 cursor-pointer rounded border border-zinc-700/60 bg-transparent"
+                      className="h-6 w-10 cursor-pointer md-corner-sm border border-[var(--md-sys-color-outline)] bg-transparent md-focus-ring"
                       value={folderEditColor || "#38bdf8"}
                       onChange={(e) => setFolderEditColor(e.target.value)}
                     />
                     <button
                       type="button"
-                      className="text-zinc-500 underline hover:text-zinc-300"
+                      className="md-btn-text md-focus-ring px-1 py-0.5 text-[0.625rem] underline"
                       onClick={() => setFolderEditColor("")}
                     >
                       清除
@@ -107,7 +179,7 @@ export function ListSidebar() {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      className="flex-1 rounded bg-[var(--accent)] py-1 text-[10px] font-medium text-[var(--bg-deep)]"
+                      className="md-btn-filled md-focus-ring flex-1 py-1 text-[0.625rem] font-medium"
                       onClick={() => {
                         updateFolder(f.id, {
                           name: folderEditName,
@@ -120,7 +192,7 @@ export function ListSidebar() {
                     </button>
                     <button
                       type="button"
-                      className="rounded border border-zinc-700/60 px-2 py-1 text-[10px] text-zinc-400"
+                      className="md-btn-outlined md-focus-ring px-2 py-1 text-[0.625rem]"
                       onClick={() => setEditingFolderId(null)}
                     >
                       取消
@@ -128,14 +200,14 @@ export function ListSidebar() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-0.5">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-0.5">
                   <button
                     type="button"
                     onClick={() => setNavFolderId(f.id)}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${
+                    className={`md-nav-item flex min-w-0 items-center gap-2 px-2 py-2 text-left ${
                       navFolderId === f.id
-                        ? "bg-[var(--accent)]/20 text-[var(--accent)]"
-                        : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                        ? "md-nav-item--selected"
+                        : "md-nav-item--default"
                     }`}
                   >
                     <span
@@ -145,12 +217,12 @@ export function ListSidebar() {
                       }
                     />
                     <FolderOpen className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                    <span className="truncate">{f.name}</span>
+                    <span className="min-w-0 truncate">{f.name}</span>
                   </button>
                   <button
                     type="button"
                     title="编辑"
-                    className="shrink-0 rounded p-1.5 text-zinc-600 opacity-0 hover:bg-white/5 hover:text-[var(--accent)] group-hover:opacity-100"
+                    className="shrink-0 md-corner-sm p-1.5 text-md-on-surface-variant opacity-0 md-state-hover-subtle hover:text-md-primary group-hover:opacity-100 md-focus-ring"
                     onClick={() => {
                       setEditingFolderId(f.id);
                       setFolderEditName(f.name);
@@ -162,19 +234,32 @@ export function ListSidebar() {
                   <button
                     type="button"
                     title="删除文件夹"
-                    className="shrink-0 rounded p-1.5 text-zinc-600 opacity-0 hover:bg-white/5 hover:text-red-400 group-hover:opacity-100"
+                    className="shrink-0 md-corner-sm p-1.5 text-md-on-surface-variant opacity-0 md-state-hover-subtle hover:text-red-400 group-hover:opacity-100 md-focus-ring"
                     onClick={() => deleteFolder(f.id)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
+                  <span
+                    className={`${countCol} ${
+                      navFolderId === f.id ? "text-md-on-primary-container/80" : ""
+                    }`}
+                  >
+                    {folderCounts[f.id] ?? 0}
+                  </span>
                 </div>
               )}
             </div>
           ))}
+          {navBtn(
+            ARCHIVE_FOLDER_KEY,
+            "归档",
+            <Archive className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            archiveCount,
+          )}
         </nav>
         <div className="mt-2 flex gap-1">
           <input
-            className="min-w-0 flex-1 rounded-md border border-zinc-700/60 bg-[var(--bg-deep)] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-[var(--accent)]"
+            className="md-field md-focus-ring min-w-0 flex-1 px-2 py-1.5 md-type-body-s"
             placeholder="新文件夹…"
             value={folderDraft}
             onChange={(e) => setFolderDraft(e.target.value)}
@@ -187,7 +272,7 @@ export function ListSidebar() {
           />
           <button
             type="button"
-            className="shrink-0 rounded-md bg-zinc-800 px-2 py-1.5 text-zinc-300 hover:bg-zinc-700"
+            className="md-btn-tonal md-focus-ring shrink-0 px-2 py-1.5"
             title="添加文件夹"
             onClick={() => {
               addFolder(folderDraft);
@@ -200,17 +285,17 @@ export function ListSidebar() {
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+        <p className="md-type-label-s mb-2 flex items-center gap-1.5">
           <Tag className="h-3 w-3" />
           标签筛选
         </p>
         <button
           type="button"
           onClick={() => setNavTagId(null)}
-          className={`mb-2 rounded-lg px-2 py-1.5 text-left text-xs ${
+          className={`mb-2 md-corner-md px-2 py-1.5 text-left md-type-body-s ${
             navTagId === null
-              ? "bg-zinc-800 text-zinc-100"
-              : "text-zinc-500 hover:bg-white/5"
+              ? "bg-[var(--md-sys-color-surface-container-highest)] text-md-on-surface"
+              : "text-md-on-surface-variant md-state-hover"
           }`}
         >
           不限标签
@@ -219,9 +304,9 @@ export function ListSidebar() {
           {tags.map((t, tagIdx) => (
             <li key={t.id} className="group flex flex-col gap-1 py-0.5">
               {editingTagId === t.id ? (
-                <div className="flex flex-col gap-1.5 rounded-lg border border-[var(--panel-border)] bg-[var(--bg-deep)] p-2">
+                <div className="flex flex-col gap-1.5 md-corner-md border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-low)] p-2">
                   <input
-                    className="w-full rounded border border-zinc-700/60 bg-[var(--panel-bg)] px-2 py-1 text-xs text-zinc-200 outline-none focus:border-[var(--accent)]"
+                    className="md-field md-focus-ring w-full px-2 py-1 md-type-body-s"
                     value={tagEditName}
                     onChange={(e) => setTagEditName(e.target.value)}
                     placeholder="标签名称"
@@ -237,17 +322,17 @@ export function ListSidebar() {
                       if (e.key === "Escape") setEditingTagId(null);
                     }}
                   />
-                  <label className="flex items-center gap-2 text-[10px] text-zinc-500">
+                  <label className="flex items-center gap-2 md-type-label-m">
                     颜色
                     <input
                       type="color"
-                      className="h-6 w-10 cursor-pointer rounded border border-zinc-700/60 bg-transparent"
+                      className="h-6 w-10 cursor-pointer md-corner-sm border border-[var(--md-sys-color-outline)] bg-transparent md-focus-ring"
                       value={tagEditColor || "#c026d3"}
                       onChange={(e) => setTagEditColor(e.target.value)}
                     />
                     <button
                       type="button"
-                      className="text-zinc-500 underline hover:text-zinc-300"
+                      className="md-btn-text md-focus-ring px-1 py-0.5 text-[0.625rem] underline"
                       onClick={() => setTagEditColor("")}
                     >
                       清除
@@ -256,7 +341,7 @@ export function ListSidebar() {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      className="flex-1 rounded bg-[var(--accent)] py-1 text-[10px] font-medium text-[var(--bg-deep)]"
+                      className="md-btn-filled md-focus-ring flex-1 py-1 text-[0.625rem] font-medium"
                       onClick={() => {
                         updateTag(t.id, {
                           name: tagEditName,
@@ -269,7 +354,7 @@ export function ListSidebar() {
                     </button>
                     <button
                       type="button"
-                      className="rounded border border-zinc-700/60 px-2 py-1 text-[10px] text-zinc-400"
+                      className="md-btn-outlined md-focus-ring px-2 py-1 text-[0.625rem]"
                       onClick={() => setEditingTagId(null)}
                     >
                       取消
@@ -277,16 +362,16 @@ export function ListSidebar() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-1">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-1">
                   <button
                     type="button"
                     onClick={() =>
                       setNavTagId(navTagId === t.id ? null : t.id)
                     }
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs ${
+                    className={`flex min-w-0 items-center gap-2 md-corner-md px-2 py-2 text-left md-type-body-s ${
                       navTagId === t.id
-                        ? "text-zinc-100"
-                        : "text-zinc-400 hover:bg-white/5"
+                        ? "text-md-on-surface"
+                        : "text-md-on-surface-variant md-state-hover"
                     }`}
                     style={
                       navTagId === t.id
@@ -303,11 +388,11 @@ export function ListSidebar() {
                         backgroundColor: resolveTagColor(t, tagIdx),
                       }}
                     />
-                    <span className="truncate">{t.name}</span>
+                    <span className="min-w-0 truncate">{t.name}</span>
                   </button>
                   <button
                     type="button"
-                    className="shrink-0 rounded p-1 text-zinc-600 opacity-0 hover:text-[var(--accent)] group-hover:opacity-100"
+                    className="shrink-0 md-corner-sm p-1 text-md-on-surface-variant opacity-0 md-state-hover-subtle hover:text-md-primary group-hover:opacity-100 md-focus-ring"
                     title="编辑标签"
                     onClick={() => {
                       setEditingTagId(t.id);
@@ -319,20 +404,27 @@ export function ListSidebar() {
                   </button>
                   <button
                     type="button"
-                    className="shrink-0 rounded p-1 text-zinc-600 opacity-0 hover:text-red-400 group-hover:opacity-100"
+                    className="shrink-0 md-corner-sm p-1 text-md-on-surface-variant opacity-0 md-state-hover-subtle hover:text-red-400 group-hover:opacity-100 md-focus-ring"
                     title="删除标签"
                     onClick={() => deleteTag(t.id)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
+                  <span
+                    className={`${countCol} ${
+                      navTagId === t.id ? "text-md-on-surface" : ""
+                    }`}
+                  >
+                    {tagCounts[t.id] ?? 0}
+                  </span>
                 </div>
               )}
             </li>
           ))}
         </ul>
-        <div className="mt-2 flex gap-1 border-t border-[var(--panel-border)] pt-2">
+        <div className="mt-2 flex gap-1 border-t border-[var(--md-sys-color-outline)] pt-2">
           <input
-            className="min-w-0 flex-1 rounded-md border border-zinc-700/60 bg-[var(--bg-deep)] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-[var(--accent)]"
+            className="md-field md-focus-ring min-w-0 flex-1 px-2 py-1.5 md-type-body-s"
             placeholder="新标签…"
             value={tagDraft}
             onChange={(e) => setTagDraft(e.target.value)}
@@ -345,7 +437,7 @@ export function ListSidebar() {
           />
           <button
             type="button"
-            className="shrink-0 rounded-md bg-zinc-800 px-2 py-1.5 text-zinc-300 hover:bg-zinc-700"
+            className="md-btn-tonal md-focus-ring shrink-0 px-2 py-1.5"
             onClick={() => {
               addTag(tagDraft);
               setTagDraft("");

@@ -33,7 +33,7 @@ export function TagBadge({ tag, tagIndex, onRemove, title }: TagBadgeProps) {
         </span>
         <button
           type="button"
-          className="absolute -right-1 -top-1 z-[1] flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-zinc-200 opacity-0 shadow-sm transition-opacity hover:bg-red-500/90 hover:text-white group-hover/tag:opacity-100"
+          className="nodrag nopan absolute -right-1 -top-1 z-[1] flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-zinc-200 opacity-0 shadow-sm transition-opacity hover:bg-red-500/90 hover:text-white group-hover/tag:opacity-100"
           title="移除标签"
           aria-label={`移除标签 ${tag.name}`}
           onClick={(e) => {

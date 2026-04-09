@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  Download,
   Hand,
   MousePointer2,
   ScanSearch,
@@ -32,6 +33,8 @@ import { FolderLaneNode } from "@/components/flow/FolderLaneNode";
 import { GroupFrameNode } from "@/components/flow/GroupFrameNode";
 import { HighlightSmoothStepEdge } from "@/components/flow/HighlightSmoothStepEdge";
 import { TaskNode } from "@/components/flow/TaskNode";
+import { folderKeyContainingFlowPoint } from "@/lib/canvas-folder-hit";
+import { taskHitCenterFlow } from "@/lib/canvas-node-absolute";
 import { separateOverlappingTaskNodes } from "@/lib/canvas-overlap";
 import {
   buildFlowEdges,
@@ -39,7 +42,17 @@ import {
   filterEdgesForTasks,
   visibleTaskIdSet,
 } from "@/lib/flow-build";
-import { INBOX_FOLDER_KEY, type NavFolderId } from "@/lib/types";
+import { buildTaskPathCanvasJson } from "@/lib/canvas-export-json";
+import {
+  TASK_NODE_BOUNDS_H,
+  TASK_NODE_BOUNDS_W,
+} from "@/lib/folder-fit";
+import {
+  ARCHIVE_FOLDER_KEY,
+  INBOX_FOLDER_KEY,
+  type NavFolderId,
+  taskFolderKey,
+} from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 
 const nodeTypes = {
@@ -66,10 +79,13 @@ function CanvasInner() {
   const syncCanvasLayout = useAppStore((s) => s.syncCanvasLayout);
   const createGroupFromTaskIds = useAppStore((s) => s.createGroupFromTaskIds);
   const arrangeTasksLinear = useAppStore((s) => s.arrangeTasksLinear);
+  const assignTaskFoldersAndRefitLanes = useAppStore(
+    (s) => s.assignTaskFoldersAndRefitLanes,
+  );
   const storeApi = useStoreApi();
   const [helpOpen, setHelpOpen] = useState(false);
-  /** 画布顶部工具栏展开/收起 */
-  const [canvasToolbarExpanded, setCanvasToolbarExpanded] = useState(true);
+  /** 画布顶部工具栏展开/收起（默认收起以留出画布） */
+  const [canvasToolbarExpanded, setCanvasToolbarExpanded] = useState(false);
   /** 重置「排列」下拉的受控 trick */
   const [arrangeMenuKey, setArrangeMenuKey] = useState(0);
   /** 选择：左键拖可选框/点节点；抓手：左键拖动画布 */
@@ -170,6 +186,29 @@ function CanvasInner() {
 
   const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
 
+  const onExportTaskPathJson = useCallback(() => {
+    const { tasks, edges, groups, layout, folders, navFolderId } =
+      useAppStore.getState();
+    const payload = buildTaskPathCanvasJson({
+      tasks,
+      edges,
+      groups,
+      layout,
+      folders,
+      navFolderId,
+      flowTaskNodes: getNodes().filter((n) => n.type === "task"),
+    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `taskpath-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [getNodes]);
+
   const visibleTaskNodeCount = useMemo(
     () => nodes.filter((n) => n.type === "task").length,
     [nodes],
@@ -214,8 +253,77 @@ function CanvasInner() {
       const resolved = separateOverlappingTaskNodes(getNodes());
       setNodes(resolved);
       syncCanvasLayout(resolved);
+
+      const byId = new Map(resolved.map((n) => [n.id, n]));
+      const { layout: lay, tasks: taskList } = useAppStore.getState();
+      const updates: { taskId: string; folderId: string | undefined }[] = [];
+
+      for (const n of resolved) {
+        if (n.type !== "task") continue;
+        if (n.parentId?.startsWith("grp-")) continue;
+        const t = taskList.find((x) => x.id === n.id);
+        if (!t) continue;
+        const { x: cx, y: cy } = taskHitCenterFlow(n, byId);
+        const hitKey = folderKeyContainingFlowPoint(cx, cy, lay.folderRects);
+        const newFolderId =
+          hitKey === INBOX_FOLDER_KEY ? undefined : hitKey;
+        if (taskFolderKey(t) === hitKey) continue;
+        updates.push({ taskId: n.id, folderId: newFolderId });
+      }
+
+      if (updates.length > 0) assignTaskFoldersAndRefitLanes(updates);
     },
-    [getNodes, setNodes, syncCanvasLayout],
+    [
+      getNodes,
+      setNodes,
+      syncCanvasLayout,
+      assignTaskFoldersAndRefitLanes,
+    ],
+  );
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, connectionState: unknown) => {
+      const cs = connectionState as {
+        isValid?: boolean;
+        fromNode?: Node | null;
+        fromHandle?: { type?: string } | null;
+      };
+      if (cs.isValid) return;
+      if (!cs.fromNode?.id || cs.fromHandle?.type !== "source") return;
+      const tgt = event.target;
+      if (!(tgt instanceof Element)) return;
+      if (!tgt.closest(".react-flow__pane")) return;
+      const dropOnNode = tgt.closest(".react-flow__node");
+      if (dropOnNode) {
+        const nid = dropOnNode.getAttribute("data-id");
+        if (
+          nid &&
+          !nid.startsWith("fld-") &&
+          !nid.startsWith("grp-")
+        ) {
+          return;
+        }
+      }
+      let x: number;
+      let y: number;
+      if ("changedTouches" in event && event.changedTouches[0]) {
+        x = event.changedTouches[0].clientX;
+        y = event.changedTouches[0].clientY;
+      } else {
+        x = (event as MouseEvent).clientX;
+        y = (event as MouseEvent).clientY;
+      }
+      const p = screenToFlowPosition({ x, y });
+      const { layout: lay } = useAppStore.getState();
+      const cx = p.x + TASK_NODE_BOUNDS_W / 2;
+      const cy = p.y + TASK_NODE_BOUNDS_H / 2;
+      const hitKey = folderKeyContainingFlowPoint(cx, cy, lay.folderRects);
+      const created = addTask("新任务", p, {
+        folderId: hitKey === INBOX_FOLDER_KEY ? null : hitKey,
+      });
+      addEdgeToStore(cs.fromNode.id, created.id);
+    },
+    [screenToFlowPosition, addTask, addEdgeToStore],
   );
 
   const onPaneClick = useCallback(
@@ -261,19 +369,23 @@ function CanvasInner() {
     setNavFolderId(v as NavFolderId);
   };
 
-  const panOnDrag = canvasTool === "hand" ? true : ([1, 2] as [number, number]);
+  /** 与 React Flow 一致：数组形式避免 boolean 与 selection 逻辑边界问题；抓手模式需含 0 才左键拖动画布 */
+  const panOnDrag = useMemo(
+    () => (canvasTool === "hand" ? [0, 1, 2] : [1, 2]),
+    [canvasTool],
+  );
   const selectionOnDrag = canvasTool === "select";
 
   return (
     <div className="relative h-[calc(100vh-3.5rem)] w-full">
       <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)]">
         <div
-          className="flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2 py-1.5 shadow-lg [scrollbar-width:thin]"
+          className="flex flex-nowrap items-center gap-2 overflow-x-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] px-2 py-1.5 md-corner-md shadow-lg [scrollbar-width:thin]"
           role="toolbar"
           aria-label="画布工具栏"
         >
           <select
-            className="max-w-[min(200px,40vw)] shrink-0 rounded-md border border-[var(--panel-border)] bg-[var(--bg-deep)]/40 px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-[var(--accent)]"
+            className="md-field md-focus-ring max-w-[min(200px,40vw)] shrink-0 px-2 py-1.5 md-type-body-s text-md-on-surface md-corner-sm"
             value={navFolderId}
             onChange={(e) => onNavSelect(e.target.value)}
             title="画布按文件夹筛选"
@@ -285,7 +397,34 @@ function CanvasInner() {
                 {f.name}
               </option>
             ))}
+            <option value={ARCHIVE_FOLDER_KEY}>归档</option>
           </select>
+          <button
+            type="button"
+            title="导出任务流布局 JSON（连线端点、任务与组位置、文件夹尺寸）"
+            className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface"
+            onClick={onExportTaskPathJson}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+          <div className="md-segmented shrink-0 shadow-lg">
+            <button
+              type="button"
+              title="选择模式（默认）：可拖任务；空白处左键拖框选；中键/右键拖动画布"
+              className={`md-segment px-2 py-1.5 ${canvasTool === "select" ? "md-segment--active" : "md-segment--inactive"}`}
+              onClick={() => setCanvasTool("select")}
+            >
+              <MousePointer2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="抓手模式：左键拖动画布（任务不可拖动）"
+              className={`md-segment px-2 py-1.5 ${canvasTool === "hand" ? "md-segment--active" : "md-segment--inactive"}`}
+              onClick={() => setCanvasTool("hand")}
+            >
+              <Hand className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <button
             type="button"
             title={
@@ -293,7 +432,7 @@ function CanvasInner() {
                 ? "向右收起侧栏工具"
                 : "向左展开工具栏"
             }
-            className="inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--bg-deep)]/40 px-2 py-1.5 text-zinc-300 hover:border-[var(--accent)] hover:text-zinc-100"
+            className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface"
             onClick={() => setCanvasToolbarExpanded((v) => !v)}
             aria-expanded={canvasToolbarExpanded}
           >
@@ -305,27 +444,9 @@ function CanvasInner() {
           </button>
           {canvasToolbarExpanded ? (
             <>
-              <div className="flex shrink-0 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] p-0.5 shadow-lg">
-                <button
-                  type="button"
-                  title="选择模式（左键拖可选区；中键/右键拖动画布）"
-                  className={`rounded px-2 py-1.5 ${canvasTool === "select" ? "bg-[var(--accent)]/25 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"}`}
-                  onClick={() => setCanvasTool("select")}
-                >
-                  <MousePointer2 className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  title="抓手模式（左键拖动画布）"
-                  className={`rounded px-2 py-1.5 ${canvasTool === "hand" ? "bg-[var(--accent)]/25 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"}`}
-                  onClick={() => setCanvasTool("hand")}
-                >
-                  <Hand className="h-3.5 w-3.5" />
-                </button>
-              </div>
               <button
                 type="button"
-                className="shrink-0 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2.5 py-1.5 text-xs text-zinc-200 shadow-lg hover:border-[var(--accent)]"
+                className="md-btn-tonal md-focus-ring shrink-0 px-2.5 py-1.5 md-type-body-s shadow-lg hover:border-md-primary/50"
                 onClick={() => addTask("新任务")}
               >
                 + 任务
@@ -333,7 +454,7 @@ function CanvasInner() {
               <button
                 type="button"
                 disabled={visibleTaskNodeCount === 0}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2 py-1.5 text-xs text-zinc-200 shadow-lg enabled:hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center gap-1 px-2 py-1.5 md-type-body-s shadow-lg enabled:hover:border-md-primary/50 disabled:cursor-not-allowed disabled:opacity-40"
                 title="缩放并平移视口，框住当前画布上的全部任务（不含文件夹条与组框）"
                 onClick={onFitVisibleTasks}
               >
@@ -344,7 +465,7 @@ function CanvasInner() {
                 type="button"
                 disabled={!canGroup}
                 title="建组（多选 ≥2 个任务）"
-                className="inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2 py-1.5 text-zinc-200 shadow-lg enabled:hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] px-2 py-1.5 text-zinc-200 shadow-lg enabled:hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={onCreateGroup}
               >
                 <SquareStack className="h-3.5 w-3.5" />
@@ -354,7 +475,7 @@ function CanvasInner() {
                 defaultValue="_"
                 disabled={selectedTaskIds.length === 0}
                 title="等距排列已选任务"
-                className="max-w-[7.5rem] shrink-0 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1.5 py-1.5 text-xs text-zinc-200 shadow-lg outline-none focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="md-field md-focus-ring max-w-[7.5rem] shrink-0 px-1.5 py-1.5 md-type-body-s text-md-on-surface shadow-lg disabled:cursor-not-allowed disabled:opacity-40 md-corner-sm"
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "horizontal") onArrange("horizontal");
@@ -370,7 +491,7 @@ function CanvasInner() {
               </select>
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-2 py-1.5 text-xs text-zinc-200 shadow-lg hover:border-[var(--accent)]"
+                className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center gap-1 px-2 py-1.5 md-type-body-s shadow-lg hover:border-md-primary/50"
                 title="画布说明（含快捷键与连线删除方式）"
                 onClick={() => setHelpOpen(true)}
               >
@@ -387,10 +508,12 @@ function CanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         onNodeDragStop={onNodeDragStop}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        nodesDraggable={canvasTool === "select"}
         panOnDrag={panOnDrag}
         selectionOnDrag={selectionOnDrag}
         deleteKeyCode={["Backspace", "Delete"]}
@@ -401,7 +524,7 @@ function CanvasInner() {
         className={
           canvasTool === "hand"
             ? "!bg-transparent [&_.react-flow__pane]:!cursor-grab [&_.react-flow__pane:active]:!cursor-grabbing"
-            : "!bg-transparent"
+            : "!bg-transparent [&_.react-flow__pane]:!cursor-default"
         }
       >
         <Background
@@ -411,10 +534,10 @@ function CanvasInner() {
           color="rgba(148,163,184,0.15)"
         />
         <Controls
-          className="!m-3 !border-[var(--panel-border)] !bg-[var(--panel-bg)] !shadow-lg [&_button]:!fill-zinc-400 [&_button:hover]:!fill-zinc-100"
+          className="!m-3 !border-[var(--md-sys-color-outline)] !bg-[var(--md-sys-color-surface-container)] !shadow-lg [&_button]:!fill-[var(--md-sys-color-on-surface-variant)] [&_button:hover]:!fill-[var(--md-sys-color-on-surface)]"
         />
         <MiniMap
-          className="!m-3 !rounded-md !border !border-[var(--panel-border)] !bg-[var(--bg-deep)]"
+          className="!m-3 !rounded-md !border !border-[var(--md-sys-color-outline)] !bg-[var(--md-sys-color-surface-container-low)]"
           nodeColor={() => "rgba(56,189,248,0.35)"}
           maskColor="rgba(0,0,0,0.45)"
         />

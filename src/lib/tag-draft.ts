@@ -50,3 +50,27 @@ export function parseTaskDraft(
   });
   return { title: title.replace(/\s+/g, " ").trim(), tagIds };
 }
+
+/**
+ * 草稿里出现的 `#标签名` 中，当前 `allTags` 里尚不存在的名称（去重，顺序为首次出现顺序）。
+ * 用于新建任务前自动创建标签。
+ */
+export function listUnknownHashTagNamesInDraft(
+  draft: string,
+  allTags: Tag[],
+): string[] {
+  const existing = new Set(allTags.map((t) => t.name.toLowerCase()));
+  const re = /#([^\s#]+)/g;
+  const out: string[] = [];
+  const queued = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(draft)) !== null) {
+    const name = String(m[1]).trim();
+    if (!name) continue;
+    const lower = name.toLowerCase();
+    if (existing.has(lower) || queued.has(lower)) continue;
+    queued.add(lower);
+    out.push(name);
+  }
+  return out;
+}

@@ -1,5 +1,7 @@
 /** layout.folderRects 与导航中「收件箱」的统一键 */
 export const INBOX_FOLDER_KEY = "__inbox__";
+/** 虚拟「归档」文件夹：结项任务可移入此栏（显式 folderId） */
+export const ARCHIVE_FOLDER_KEY = "__archive__";
 
 export type Folder = {
   id: string;
@@ -48,7 +50,7 @@ export type Rect = { x: number; y: number; w: number; h: number };
 export type LayoutState = {
   positions: Record<string, Vec2>;
   groupRects: Record<string, Rect>;
-  /** 收件箱键为 INBOX_FOLDER_KEY，其余为文件夹 id */
+  /** 收件箱 / 归档为内置键，其余为文件夹 id */
   folderRects: Record<string, Rect>;
 };
 
@@ -78,6 +80,21 @@ export function defaultInboxRect(): Rect {
   return { x: 40, y: 40, w: 320, h: 420 };
 }
 
+export function defaultArchiveRect(): Rect {
+  return { x: 400, y: 40, w: 320, h: 420 };
+}
+
+/** 「全部文件夹」画布上文件夹竖条顺序：收件箱 → 自定义 → 归档 */
+export function allCanvasFolderLaneKeys(folders: { id: string }[]): string[] {
+  return [INBOX_FOLDER_KEY, ...folders.map((f) => f.id), ARCHIVE_FOLDER_KEY];
+}
+
+export function defaultFolderRectForKey(folderKey: string): Rect {
+  if (folderKey === INBOX_FOLDER_KEY) return defaultInboxRect();
+  if (folderKey === ARCHIVE_FOLDER_KEY) return defaultArchiveRect();
+  return defaultInboxRect();
+}
+
 export function emptyAppData(): AppData {
   return {
     tasks: [],
@@ -88,7 +105,10 @@ export function emptyAppData(): AppData {
     layout: {
       positions: {},
       groupRects: {},
-      folderRects: { [INBOX_FOLDER_KEY]: defaultInboxRect() },
+      folderRects: {
+        [INBOX_FOLDER_KEY]: defaultInboxRect(),
+        [ARCHIVE_FOLDER_KEY]: defaultArchiveRect(),
+      },
     },
     preferences: {},
   };

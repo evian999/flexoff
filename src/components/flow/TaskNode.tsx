@@ -3,8 +3,14 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Check, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { CompleteTaskDialog } from "@/components/CompleteTaskDialog";
 import type { Task } from "@/lib/types";
-import { INBOX_FOLDER_KEY, taskFolderKey } from "@/lib/types";
+import {
+  ARCHIVE_FOLDER_KEY,
+  INBOX_FOLDER_KEY,
+  taskFolderKey,
+} from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import { TagBadge } from "@/components/TagBadge";
 import { priorityCheckboxBorder } from "@/lib/task-priority-ui";
@@ -16,12 +22,14 @@ export function TaskNode({ data, selected }: NodeProps) {
   const done = Boolean(task.completedAt);
   const deleteTask = useAppStore((s) => s.deleteTask);
   const updateTask = useAppStore((s) => s.updateTask);
+  const uncompleteTask = useAppStore((s) => s.uncompleteTask);
   const toggleTaskTag = useAppStore((s) => s.toggleTaskTag);
   const folders = useAppStore((s) => s.folders);
   const tags = useAppStore((s) => s.tags);
 
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
+  const [completeOpen, setCompleteOpen] = useState(false);
 
   useEffect(() => {
     if (!editing) setTitleDraft(task.title);
@@ -31,28 +39,42 @@ export function TaskNode({ data, selected }: NodeProps) {
   const folderName =
     fk === INBOX_FOLDER_KEY
       ? "收件箱"
-      : folders.find((f) => f.id === fk)?.name ?? "文件夹";
+      : fk === ARCHIVE_FOLDER_KEY
+        ? "归档"
+        : folders.find((f) => f.id === fk)?.name ?? "文件夹";
 
   const taskTags = (task.tagIds ?? [])
     .map((id) => tags.find((t) => t.id === id))
     .filter(Boolean);
 
   return (
+    <>
+      {completeOpen && typeof document !== "undefined"
+        ? createPortal(
+            <CompleteTaskDialog
+              task={task}
+              onClose={() => setCompleteOpen(false)}
+            />,
+            document.body,
+          )
+        : null}
     <div
-      className={`task-node relative z-[1] min-w-[200px] max-w-[280px] rounded-lg border bg-[var(--node-bg)] px-3 py-2 shadow-[0_0_20px_rgba(56,189,248,0.06)] backdrop-blur-sm transition-colors ${
+      className={`task-node relative z-[1] min-w-[200px] max-w-[280px] border bg-[var(--md-sys-color-surface-container-low)] px-3 py-2 backdrop-blur-sm transition-colors md-corner-md ${
         selected
-          ? "border-[var(--accent)] ring-1 ring-[var(--accent)]"
-          : "border-[var(--node-border)] hover:border-[var(--node-border-hover)]"
+          ? "border-2 border-md-primary"
+          : "border border-[var(--node-border)] hover:border-[var(--node-border-hover)]"
       }`}
+      style={{ boxShadow: selected ? undefined : "var(--md-sys-elevation-shadow-1)" }}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!z-20 !h-2.5 !w-2.5 !border !border-[var(--accent)] !bg-[var(--bg-deep)]"
+        className="!z-20 !h-2.5 !w-2.5 !border !border-md-primary !bg-md-surface"
       />
       <div className="flex items-start gap-2">
-        <span
-          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border-2 transition-colors ${
+        <button
+          type="button"
+          className={`nodrag nopan mt-0.5 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-2 transition-colors md-focus-ring ${
             done
               ? "border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--accent)]"
               : ""
@@ -66,18 +88,27 @@ export function TaskNode({ data, selected }: NodeProps) {
               : undefined
           }
           title={
-            task.priority === undefined
-              ? "未完成（无优先级）"
-              : "未完成时边框颜色表示优先级"
+            done
+              ? "标记为未完成"
+              : task.priority === undefined
+                ? "未完成（无优先级）"
+                : "未完成时边框颜色表示优先级；点击完成"
           }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (done) uncompleteTask(task.id);
+            else setCompleteOpen(true);
+          }}
         >
           {done ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
-        </span>
+        </button>
         <div className="min-w-0 flex-1">
-          <p className="mb-1 text-[10px] text-zinc-600">{folderName}</p>
+          <p className="mb-1 text-[0.625rem] leading-3 text-md-on-surface-variant">
+            {folderName}
+          </p>
           {editing ? (
             <input
-              className="nodrag nopan w-full rounded border border-[var(--accent)] bg-[var(--bg-deep)] px-1.5 py-1 text-sm text-zinc-100 outline-none"
+              className="nodrag nopan md-field md-focus-ring w-full px-1.5 py-1 md-type-body-m"
               value={titleDraft}
               onChange={(e) => setTitleDraft(e.target.value)}
               autoFocus
@@ -97,8 +128,10 @@ export function TaskNode({ data, selected }: NodeProps) {
             />
           ) : (
             <p
-              className={`text-sm font-medium leading-snug ${
-                done ? "text-zinc-500 line-through" : "text-zinc-100"
+              className={`md-type-body-m font-medium leading-snug ${
+                done
+                  ? "text-md-on-surface-variant line-through"
+                  : "text-md-on-surface"
               }`}
             >
               {task.title}
@@ -117,13 +150,13 @@ export function TaskNode({ data, selected }: NodeProps) {
             </div>
           ) : null}
           {task.result ? (
-            <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{task.result}</p>
+            <p className="mt-1 line-clamp-2 md-type-body-s">{task.result}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col gap-0.5">
           <button
             type="button"
-            className="nodrag nopan rounded p-1 text-zinc-600 hover:bg-white/5 hover:text-[var(--accent)]"
+            className="nodrag nopan md-corner-sm p-1 text-md-on-surface-variant md-state-hover-subtle hover:text-md-primary md-focus-ring"
             title="编辑标题"
             onClick={(e) => {
               e.stopPropagation();
@@ -135,7 +168,7 @@ export function TaskNode({ data, selected }: NodeProps) {
           </button>
           <button
             type="button"
-            className="nodrag nopan rounded p-1 text-zinc-600 hover:bg-white/5 hover:text-red-400"
+            className="nodrag nopan md-corner-sm p-1 text-md-on-surface-variant md-state-hover-subtle hover:text-red-400 md-focus-ring"
             title="删除任务"
             onClick={(e) => {
               e.stopPropagation();
@@ -149,8 +182,9 @@ export function TaskNode({ data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!z-20 !h-2.5 !w-2.5 !border !border-[var(--accent)] !bg-[var(--bg-deep)]"
+        className="!z-20 !h-2.5 !w-2.5 !border !border-md-primary !bg-md-surface"
       />
     </div>
+    </>
   );
 }

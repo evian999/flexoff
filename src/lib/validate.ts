@@ -7,7 +7,9 @@ import type {
   TaskPriority,
 } from "./types";
 import {
+  ARCHIVE_FOLDER_KEY,
   INBOX_FOLDER_KEY,
+  defaultArchiveRect,
   defaultInboxRect,
   emptyAppData,
 } from "./types";
@@ -40,9 +42,11 @@ function ensureFolderRects(
 ): LayoutState["folderRects"] {
   const out: LayoutState["folderRects"] = {
     [INBOX_FOLDER_KEY]: defaultInboxRect(),
+    [ARCHIVE_FOLDER_KEY]: defaultArchiveRect(),
     ...raw,
   };
   if (!out[INBOX_FOLDER_KEY]) out[INBOX_FOLDER_KEY] = defaultInboxRect();
+  if (!out[ARCHIVE_FOLDER_KEY]) out[ARCHIVE_FOLDER_KEY] = defaultArchiveRect();
   folders.forEach((f, i) => {
     if (!out[f.id]) {
       out[f.id] = { x: 40 + (i + 1) * 420, y: 40, w: 360, h: 1200 };

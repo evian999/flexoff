@@ -31,8 +31,8 @@ export function FolderLaneNode({ data, selected }: NodeProps) {
         }}
       />
       <div
-        className={`folder-lane pointer-events-none relative h-full w-full rounded-xl border border-zinc-700/40 bg-black/20 backdrop-blur-[1px] ${
-          selected ? "ring-1 ring-[var(--accent)]" : ""
+        className={`folder-lane pointer-events-none relative h-full w-full md-corner-xl border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/40 backdrop-blur-[1px] ${
+          selected ? "ring-1 ring-md-primary" : ""
         }`}
         style={{
           borderLeftWidth: 3,
@@ -41,7 +41,7 @@ export function FolderLaneNode({ data, selected }: NodeProps) {
         }}
       >
         <div className="folder-lane-drag pointer-events-auto cursor-grab select-none px-2 py-1.5 active:cursor-grabbing">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <span className="md-type-label-s">
             {d.name}
           </span>
         </div>

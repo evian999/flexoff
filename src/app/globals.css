@@ -15,8 +15,55 @@ html[data-theme="dark"] {
   --flow-edge: rgba(56, 189, 248, 0.55);
   --flow-label: #a1a1aa;
   --flow-label-bg: rgba(12, 12, 14, 0.85);
-  /* 未完成 checkbox 内部：中性灰，边框由优先级色单独控制 */
   --checkbox-unchecked-fill: rgba(39, 39, 42, 0.85);
+
+  /* MD3: semantic color roles */
+  --md-sys-color-primary: var(--accent);
+  --md-sys-color-on-primary: var(--bg-deep);
+  --md-sys-color-primary-container: color-mix(in srgb, var(--accent) 22%, transparent);
+  --md-sys-color-on-primary-container: var(--accent);
+  --md-sys-color-surface: var(--bg-base);
+  --md-sys-color-on-surface: #e4e4e7;
+  --md-sys-color-on-surface-variant: #a1a1aa;
+  --md-sys-color-surface-container: var(--panel-bg);
+  --md-sys-color-surface-container-low: var(--node-bg);
+  --md-sys-color-surface-container-high: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 6%,
+    var(--md-sys-color-surface)
+  );
+  --md-sys-color-surface-container-highest: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 10%,
+    var(--md-sys-color-surface)
+  );
+  --md-sys-color-outline: var(--panel-border);
+  --md-sys-color-outline-variant: color-mix(
+    in srgb,
+    var(--panel-border) 70%,
+    transparent
+  );
+  --md-sys-color-scrim: rgba(0, 0, 0, 0.6);
+  --md-sys-color-error: #f87171;
+  --md-sys-color-on-error-container: #fecaca;
+
+  /* MD3: shape */
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 20px;
+
+  /* MD3: elevation (surface-tinted, not neon glow) */
+  --md-sys-elevation-shadow-1:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline) 35%, transparent);
+  --md-sys-elevation-shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.45);
+
+  /* MD3: state layer opacities (on surface / container) */
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-focus-opacity: 0.12;
+  --md-sys-state-pressed-opacity: 0.12;
 }
 
 html[data-theme="light"] {
@@ -35,11 +82,53 @@ html[data-theme="light"] {
   --flow-label: #52525b;
   --flow-label-bg: rgba(255, 255, 255, 0.95);
   --checkbox-unchecked-fill: #e4e4e7;
+
+  --md-sys-color-primary: var(--accent);
+  --md-sys-color-on-primary: var(--bg-deep);
+  --md-sys-color-primary-container: color-mix(in srgb, var(--accent) 18%, transparent);
+  --md-sys-color-on-primary-container: #0369a1;
+  --md-sys-color-surface: var(--bg-base);
+  --md-sys-color-on-surface: #18181b;
+  --md-sys-color-on-surface-variant: #52525b;
+  --md-sys-color-surface-container: var(--panel-bg);
+  --md-sys-color-surface-container-low: var(--node-bg);
+  --md-sys-color-surface-container-high: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 5%,
+    var(--md-sys-color-surface)
+  );
+  --md-sys-color-surface-container-highest: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 8%,
+    var(--md-sys-color-surface)
+  );
+  --md-sys-color-outline: var(--panel-border);
+  --md-sys-color-outline-variant: color-mix(
+    in srgb,
+    var(--panel-border) 55%,
+    var(--md-sys-color-surface)
+  );
+  --md-sys-color-scrim: rgba(24, 24, 27, 0.4);
+  --md-sys-color-error: #dc2626;
+  --md-sys-color-on-error-container: #991b1b;
+
+  --md-sys-elevation-shadow-1:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 0 0 1px color-mix(in srgb, var(--md-sys-color-outline) 45%, transparent);
+  --md-sys-elevation-shadow-dialog: 0 12px 40px rgba(2, 132, 199, 0.08);
 }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-md-primary: var(--md-sys-color-primary);
+  --color-md-on-primary: var(--md-sys-color-on-primary);
+  --color-md-surface: var(--md-sys-color-surface);
+  --color-md-on-surface: var(--md-sys-color-on-surface);
+  --color-md-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-md-outline: var(--md-sys-color-outline);
+  --color-md-primary-container: var(--md-sys-color-primary-container);
+  --color-md-on-primary-container: var(--md-sys-color-on-primary-container);
 }
 
 html {
@@ -51,13 +140,281 @@ html[data-theme="light"] {
 }
 
 body {
-  background: var(--bg-base);
-  color: #e4e4e7;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-html[data-theme="light"] body {
-  color: #18181b;
+/* MD3 typography scale */
+.md-type-label-s {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.md-type-label-m {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.md-type-title-m {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-type-body-m {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-type-body-s {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* MD3 shape utilities */
+.md-corner-xs {
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+.md-corner-sm {
+  border-radius: var(--md-sys-shape-corner-small);
+}
+.md-corner-md {
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+.md-corner-lg {
+  border-radius: var(--md-sys-shape-corner-large);
+}
+.md-corner-xl {
+  border-radius: var(--md-sys-shape-corner-extra-large);
+}
+
+/* State layers: hover on neutral surfaces */
+.md-state-hover:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%),
+    transparent
+  );
+}
+
+.md-state-hover-subtle:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 6%,
+    transparent
+  );
+}
+
+/* Focus ring (keyboard) */
+.md-focus-ring:focus {
+  outline: none;
+}
+.md-focus-ring:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.md-field {
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline) 80%, transparent);
+  background-color: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.md-field::placeholder {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.md-field:focus {
+  outline: none;
+}
+.md-field:focus-visible {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+}
+
+/* MD3 button roles */
+.md-btn-filled {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: 500;
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.md-btn-filled:hover {
+  filter: brightness(1.06);
+}
+.md-btn-filled:focus {
+  outline: none;
+}
+.md-btn-filled:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.md-btn-outlined {
+  border: 1px solid var(--md-sys-color-outline);
+  color: var(--md-sys-color-on-surface);
+  background-color: transparent;
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: 500;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.md-btn-outlined:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover-opacity),
+    transparent
+  );
+}
+.md-btn-outlined:focus {
+  outline: none;
+}
+.md-btn-outlined:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.md-btn-tonal {
+  border: 1px solid var(--md-sys-color-outline);
+  background-color: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+.md-btn-tonal:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) 8%,
+    var(--md-sys-color-surface-container-high)
+  );
+}
+.md-btn-tonal:focus {
+  outline: none;
+}
+.md-btn-tonal:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.md-btn-text {
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  border-radius: var(--md-sys-shape-corner-small);
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+.md-btn-text:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 12%,
+    transparent
+  );
+}
+.md-btn-text:focus {
+  outline: none;
+}
+.md-btn-text:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+/* Segmented control (MD3 navigation bar style) */
+.md-segmented {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--md-sys-shape-corner-medium);
+  border: 1px solid var(--md-sys-color-outline);
+  background-color: var(--md-sys-color-surface-container-highest);
+}
+.md-segment {
+  border-radius: var(--md-sys-shape-corner-small);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.md-segment:focus {
+  outline: none;
+}
+.md-segment:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+.md-segment--active {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+.md-segment--inactive {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.md-segment--inactive:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover-opacity),
+    transparent
+  );
+  color: var(--md-sys-color-on-surface);
+}
+
+/* Nav rail list item */
+.md-nav-item {
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.md-nav-item:focus {
+  outline: none;
+}
+.md-nav-item:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+.md-nav-item--selected {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+.md-nav-item--default {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.md-nav-item--default:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-surface) var(--md-sys-state-hover-opacity),
+    transparent
+  );
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-scrim {
+  background-color: var(--md-sys-color-scrim);
+}
+
+.md-surface-tonal {
+  background-color: var(--md-sys-color-surface-container-high);
 }
 
 .comfy-grid {
@@ -79,7 +436,7 @@ html[data-theme="light"] .comfy-grid {
     linear-gradient(90deg, rgba(2, 132, 199, 0.05) 1px, transparent 1px);
 }
 
-/* 浅色下 Tailwind zinc 文字对比度 */
+/* 浅色下 Tailwind zinc 文字对比度（逐步由 md-sys / md-type 替代） */
 html[data-theme="light"] .text-zinc-100 {
   color: #18181b;
 }
@@ -181,3 +538,38 @@ html[data-theme="light"] .shadow-cyan-500\/\[0\.07\] {
 .react-flow__attribution {
   display: none;
 }
+
+/* 列表模式：点击「下一任务」跳转后的目标卡片高亮 */
+@keyframes list-task-target-flash {
+  0%,
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 0;
+    box-shadow: var(--md-sys-elevation-shadow-1);
+  }
+  12% {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+    box-shadow:
+      var(--md-sys-elevation-shadow-1),
+      0 0 0 4px color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent),
+      0 0 32px color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent);
+  }
+  45% {
+    outline: 2px solid color-mix(in srgb, var(--md-sys-color-primary) 55%, transparent);
+    outline-offset: 2px;
+    box-shadow:
+      var(--md-sys-elevation-shadow-1),
+      0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+  }
+}
+
+.list-task-target-flash {
+  animation: list-task-target-flash 1.35s ease-out;
+}
+
+/*
+ * Optional UI libs: @mui/material adds ~300kb+ gzipped and needs Emotion/cache setup
+ * for Next App Router; @material/web is lighter but uses Shadow DOM and client-only
+ * registration. This app stays token-first (above) until a specific widget gap appears.
+ */

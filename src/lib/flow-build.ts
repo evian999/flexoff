@@ -1,8 +1,17 @@
 import type { Edge, Node } from "@xyflow/react";
-import { defaultAbsolutePositionInFolder } from "@/lib/canvas-layout";
+import {
+  defaultGridPositionInFolder,
+  defaultSphericalPositionInFolder,
+  taskHasAnyEdge,
+} from "@/lib/canvas-layout";
 import { computeGroupRectFromTaskPositions } from "@/lib/folder-fit";
 import type { Folder, LayoutState, NavFolderId, Task, TaskGroup, TodoEdge } from "./types";
-import { INBOX_FOLDER_KEY, taskFolderKey } from "./types";
+import {
+  ARCHIVE_FOLDER_KEY,
+  INBOX_FOLDER_KEY,
+  allCanvasFolderLaneKeys,
+  taskFolderKey,
+} from "./types";
 
 export const GROUP_PREFIX = "grp-";
 export const FOLDER_PREFIX = "fld-";
@@ -24,11 +33,13 @@ export function taskParentGroup(
 
 function folderDisplayName(folderKey: string, folders: Folder[]): string {
   if (folderKey === INBOX_FOLDER_KEY) return "收件箱";
+  if (folderKey === ARCHIVE_FOLDER_KEY) return "归档";
   return folders.find((f) => f.id === folderKey)?.name ?? "文件夹";
 }
 
 function folderColor(folderKey: string, folders: Folder[]): string | undefined {
-  if (folderKey === INBOX_FOLDER_KEY) return undefined;
+  if (folderKey === INBOX_FOLDER_KEY || folderKey === ARCHIVE_FOLDER_KEY)
+    return undefined;
   return folders.find((f) => f.id === folderKey)?.color;
 }
 
@@ -36,6 +47,8 @@ function filterTasksByNav(tasks: Task[], navFolderId: NavFolderId): Task[] {
   if (navFolderId === "all") return tasks;
   if (navFolderId === INBOX_FOLDER_KEY)
     return tasks.filter((t) => !t.folderId);
+  if (navFolderId === ARCHIVE_FOLDER_KEY)
+    return tasks.filter((t) => t.folderId === ARCHIVE_FOLDER_KEY);
   return tasks.filter((t) => t.folderId === navFolderId);
 }
 
@@ -92,7 +105,7 @@ function visibleFolderKeys(
   navFolderId: NavFolderId,
 ): string[] {
   if (navFolderId === "all") {
-    return [INBOX_FOLDER_KEY, ...folders.map((f) => f.id)];
+    return allCanvasFolderLaneKeys(folders);
   }
   return [navFolderId];
 }
@@ -149,7 +162,6 @@ export function buildFlowNodes(
         name: folderDisplayName(key, folders),
         color: folderColor(key, folders),
       },
-      draggable: true,
       dragHandle: ".folder-lane-drag",
       selectable: true,
       zIndex: -2,
@@ -180,7 +192,6 @@ export function buildFlowNodes(
       data: { groupId: g.id, name: g.name },
       parentId: folderLaneNodeId(fk),
       extent: "parent",
-      draggable: true,
       dragHandle: ".group-frame-drag",
       selectable: true,
       zIndex: -1,
@@ -200,10 +211,32 @@ export function buildFlowNodes(
     const fk = taskFolderKey(t);
     const fRect = layout.folderRects[fk];
     if (!fRect) continue;
-    const inFolder = tasksByFolder.get(fk) ?? [t];
-    const slotIndex = Math.max(0, inFolder.findIndex((x) => x.id === t.id));
+    const inFolder = [...(tasksByFolder.get(fk) ?? [t])].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    const isolatedSorted = inFolder.filter(
+      (x) => !taskHasAnyEdge(x.id, allEdges),
+    );
+    const connectedSorted = inFolder.filter((x) =>
+      taskHasAnyEdge(x.id, allEdges),
+    );
+    const splitLanes =
+      isolatedSorted.length > 0 && connectedSorted.length > 0;
+
     const abs =
-      layout.positions[t.id] ?? defaultAbsolutePositionInFolder(fRect, slotIndex);
+      layout.positions[t.id] ??
+      (taskHasAnyEdge(t.id, allEdges)
+        ? defaultGridPositionInFolder(
+            fRect,
+            Math.max(0, connectedSorted.findIndex((x) => x.id === t.id)),
+            splitLanes ? "right" : "full",
+          )
+        : defaultSphericalPositionInFolder(
+            fRect,
+            Math.max(0, isolatedSorted.findIndex((x) => x.id === t.id)),
+            isolatedSorted.length,
+            splitLanes ? "left" : "full",
+          ));
 
     let position: { x: number; y: number };
     let parentId: string | undefined;
@@ -218,12 +251,13 @@ export function buildFlowNodes(
       } else {
         position = { x: abs.x - fRect.x, y: abs.y - fRect.y };
         parentId = folderLaneNodeId(fk);
-        extent = "parent";
+        extent = undefined;
       }
     } else {
       position = { x: abs.x - fRect.x, y: abs.y - fRect.y };
       parentId = folderLaneNodeId(fk);
-      extent = "parent";
+      /** 仅直接挂在文件夹下时可拖出栏外；组内任务仍限制在组框内 */
+      extent = undefined;
     }
 
     nodes.push({
@@ -233,7 +267,6 @@ export function buildFlowNodes(
       parentId,
       extent,
       data: { task: t },
-      draggable: true,
       selectable: true,
       zIndex: 2,
     });

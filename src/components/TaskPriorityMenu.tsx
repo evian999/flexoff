@@ -64,7 +64,7 @@ export function TaskPriorityMenu({ value, onChange }: Props) {
     open && typeof document !== "undefined" ? (
       <ul
         ref={menuRef}
-        className="fixed z-[9999] min-w-[11rem] rounded-lg border border-zinc-700/80 bg-[var(--panel-bg)] py-1 shadow-xl"
+        className="fixed z-[9999] min-w-[11rem] border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
         style={{ top: pos.top, left: pos.left }}
         role="listbox"
       >
@@ -73,13 +73,13 @@ export function TaskPriorityMenu({ value, onChange }: Props) {
             type="button"
             role="option"
             aria-selected={value === undefined}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left md-type-body-s text-md-on-surface md-state-hover md-focus-ring"
             onClick={() => {
               onChange(undefined);
               setOpen(false);
             }}
           >
-            <Flag className="h-3.5 w-3.5 text-zinc-500" strokeWidth={2} />
+            <Flag className="h-3.5 w-3.5 text-md-on-surface-variant" strokeWidth={2} />
             无优先级
           </button>
         </li>
@@ -89,7 +89,7 @@ export function TaskPriorityMenu({ value, onChange }: Props) {
               type="button"
               role="option"
               aria-selected={p === value}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left md-type-body-s text-md-on-surface md-state-hover md-focus-ring"
               onClick={() => {
                 onChange(p);
                 setOpen(false);
@@ -113,10 +113,10 @@ export function TaskPriorityMenu({ value, onChange }: Props) {
             : "更改新建任务的优先级"
         }
         onClick={() => setOpen((o) => !o)}
-        className="flex h-full min-h-[2.75rem] items-center gap-0.5 border-r border-zinc-700/60 bg-black/15 px-2.5 text-zinc-200 hover:bg-white/5"
+        className="flex h-full min-h-[2.75rem] items-center gap-0.5 border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-high)] px-2.5 text-md-on-surface md-state-hover-subtle md-focus-ring"
       >
         <Flag
-          className={`h-4 w-4 ${value === undefined ? "text-zinc-500" : FLAGS.find((f) => f.p === value)?.className ?? "text-zinc-500"}`}
+          className={`h-4 w-4 ${value === undefined ? "text-md-on-surface-variant" : FLAGS.find((f) => f.p === value)?.className ?? "text-md-on-surface-variant"}`}
           strokeWidth={2}
         />
         <ChevronDown

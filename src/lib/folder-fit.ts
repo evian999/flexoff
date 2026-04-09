@@ -43,7 +43,7 @@ function separationDeltaBFromA(
 
 /**
  * 画布「全部文件夹」视图：消除文件夹 lane 之间的重叠（含间隙）。
- * 按固定顺序（收件箱 → 各文件夹）只推动后序文件夹及其内部任务的绝对坐标。
+ * 按固定顺序（收件箱 → 各文件夹 → 归档）只推动后序文件夹及其内部任务的绝对坐标。
  */
 export function packFolderLanesNoOverlapForAllView(
   folderOrder: string[],
@@ -152,8 +152,8 @@ export function computeGroupRectFromTaskPositions(
     h: maxY - minY + pad * 2,
   };
 }
-/** 文件夹自动扩展时相对任务/任务组外沿的多留白（比「刚好包住」更大一圈） */
-const FOLDER_CONTENT_PAD = 56;
+/** 文件夹外沿相对内部任务/组包盒的留白（用户约 20px） */
+const FOLDER_OUTER_PAD = 20;
 
 function parseCssNumber(v: unknown): number | undefined {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -204,6 +204,8 @@ function expandFolderRectToContent(
   let maxX = -Infinity;
   let maxY = -Infinity;
   let has = false;
+
+  const pad = FOLDER_OUTER_PAD;
 
   for (const t of tasks) {
     if (taskFolderKey(t) !== fk) continue;
@@ -256,20 +258,16 @@ function expandFolderRectToContent(
     };
   }
 
-  const needL = minX - FOLDER_CONTENT_PAD;
-  const needT = minY - FOLDER_CONTENT_PAD;
+  const contentL = minX - pad;
+  const contentT = minY - pad;
+  const contentR = maxX + pad;
+  const contentB = maxY + pad;
 
-  // 保留用户拖拽/缩放后的右、下边界：不强制向右、向下扩张包住内容，才能缩小文件夹；
-  // 仅当内容在左、上侧溢出时向左、上扩展（保持右、下边不动，宽度/高度随之增加）。
-  const rightEdge = rect.x + Math.max(rect.w, EMPTY_MIN_W);
-  const bottomEdge = rect.y + Math.max(rect.h, EMPTY_MIN_H);
-  const left = Math.min(rect.x, needL);
-  const top = Math.min(rect.y, needT);
   return {
-    x: left,
-    y: top,
-    w: rightEdge - left,
-    h: bottomEdge - top,
+    x: contentL,
+    y: contentT,
+    w: Math.max(contentR - contentL, EMPTY_MIN_W),
+    h: Math.max(contentB - contentT, EMPTY_MIN_H),
   };
 }
 

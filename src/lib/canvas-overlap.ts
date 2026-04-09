@@ -1,15 +1,20 @@
 import type { Node } from "@xyflow/react";
+import { readFlowNodeSize } from "@/lib/folder-fit";
 
 /** 与画布 TaskNode 估算占位一致（max-w 280 + padding） */
 const TASK_W = 288;
 const TASK_H = 140;
-const GAP = 14;
+const GAP = 8;
+const MAX_ITER = 160;
 
 function buildById(nodes: Node[]): Map<string, Node> {
   return new Map(nodes.map((n) => [n.id, n]));
 }
 
-function absolutePos(n: Node, byId: Map<string, Node>): { x: number; y: number } {
+function absolutePos(
+  n: Node,
+  byId: Map<string, Node>,
+): { x: number; y: number } {
   if (!n.parentId) return { x: n.position.x, y: n.position.y };
   const p = byId.get(n.parentId);
   if (!p) return { x: n.position.x, y: n.position.y };
@@ -52,6 +57,18 @@ function overlaps(a: TRect, b: TRect): boolean {
   );
 }
 
+function taskRect(n: Node, byId: Map<string, Node>): TRect {
+  const p = absolutePos(n, byId);
+  const sz = readFlowNodeSize(n);
+  return {
+    id: n.id,
+    x: p.x,
+    y: p.y,
+    w: sz?.w ?? TASK_W,
+    h: sz?.h ?? TASK_H,
+  };
+}
+
 /** 浅拷贝节点与 position，供就地调整 */
 export function cloneNodesShallow(nodes: Node[]): Node[] {
   return nodes.map((n) => ({
@@ -60,57 +77,62 @@ export function cloneNodesShallow(nodes: Node[]): Node[] {
   }));
 }
 
+/** 仅比较绝对坐标，避免因首次测量宽高变化误触发持久化 */
+export function taskNodesAbsolutePositionKey(nodes: Node[]): string {
+  const byId = buildById(nodes);
+  const tasks = nodes
+    .filter((n) => n.type === "task")
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return tasks
+    .map((t) => {
+      const p = absolutePos(t, byId);
+      return `${t.id}:${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+    })
+    .join("|");
+}
+
 /**
- * 同一父节点下的任务节点若重叠，将靠后的节点向右或向下推开（迭代至无明显重叠）。
+ * 画布上所有任务卡片按**绝对坐标**互斥：任意两任务重叠时，将 id 字典序靠后者推开（迭代至稳定）。
+ * 跨文件夹、跨任务组同样生效。
  */
 export function separateOverlappingTaskNodes(nodes: Node[]): Node[] {
   const next = cloneNodesShallow(nodes);
   const byId = buildById(next);
-  const tasks = next.filter((n) => n.type === "task");
-  const byParent = new Map<string | undefined, Node[]>();
-  for (const t of tasks) {
-    const k = t.parentId;
-    const arr = byParent.get(k) ?? [];
-    arr.push(t);
-    byParent.set(k, arr);
-  }
+  const tasks = next
+    .filter((n) => n.type === "task")
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (tasks.length < 2) return next;
 
-  for (const [, group] of byParent) {
-    if (group.length < 2) continue;
-    for (let iter = 0; iter < 80; iter++) {
-      let moved = false;
-      const rects: TRect[] = group.map((t) => {
-        const p = absolutePos(t, byId);
-        return { id: t.id, x: p.x, y: p.y, w: TASK_W, h: TASK_H };
-      });
-      for (let i = 0; i < rects.length; i++) {
-        for (let j = i + 1; j < rects.length; j++) {
-          const A = rects[i];
-          const B = rects[j];
-          if (!overlaps(A, B)) continue;
-          const nodeB = byId.get(B.id)!;
-          const bAbs = { x: B.x, y: B.y };
-          const overlapX =
-            Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
-          const overlapY =
-            Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
-          const newAbs =
-            overlapX < overlapY
-              ? { x: A.x + A.w + GAP, y: bAbs.y }
-              : { x: bAbs.x, y: A.y + A.h + GAP };
-          setFromAbsolute(nodeB, newAbs, byId);
-          moved = true;
-          rects[j] = {
-            id: B.id,
-            x: newAbs.x,
-            y: newAbs.y,
-            w: TASK_W,
-            h: TASK_H,
-          };
-        }
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let moved = false;
+    const rects: TRect[] = tasks.map((t) => taskRect(t, byId));
+    for (let i = 0; i < tasks.length; i++) {
+      for (let j = i + 1; j < tasks.length; j++) {
+        const A = rects[i];
+        const B = rects[j];
+        if (!overlaps(A, B)) continue;
+        const nodeJ = tasks[j];
+        const bAbs = { x: B.x, y: B.y };
+        const overlapX =
+          Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+        const overlapY =
+          Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+        const newAbs =
+          overlapX < overlapY
+            ? { x: A.x + A.w + GAP, y: bAbs.y }
+            : { x: bAbs.x, y: A.y + A.h + GAP };
+        setFromAbsolute(nodeJ, newAbs, byId);
+        moved = true;
+        rects[j] = {
+          id: B.id,
+          x: newAbs.x,
+          y: newAbs.y,
+          w: B.w,
+          h: B.h,
+        };
       }
-      if (!moved) break;
     }
+    if (!moved) break;
   }
 
   return next;
