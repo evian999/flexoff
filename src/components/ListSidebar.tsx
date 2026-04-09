@@ -54,18 +54,21 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
     );
     let inboxCount = 0;
     let archiveCount = 0;
+    let incompleteAll = 0;
     for (const task of tasks) {
+      if (task.completedAt) continue;
+      incompleteAll += 1;
+      for (const tid of task.tagIds ?? []) {
+        if (tagCounts[tid] !== undefined) tagCounts[tid] += 1;
+      }
       if (!task.folderId) inboxCount += 1;
       else if (task.folderId === ARCHIVE_FOLDER_KEY) archiveCount += 1;
       else if (folderCounts[task.folderId] !== undefined) {
         folderCounts[task.folderId] += 1;
       }
-      for (const tid of task.tagIds ?? []) {
-        if (tagCounts[tid] !== undefined) tagCounts[tid] += 1;
-      }
     }
     return {
-      allCount: tasks.length,
+      allCount: incompleteAll,
       inboxCount,
       archiveCount,
       folderCounts,
