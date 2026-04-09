@@ -79,6 +79,7 @@ function CanvasInner() {
   const syncCanvasLayout = useAppStore((s) => s.syncCanvasLayout);
   const createGroupFromTaskIds = useAppStore((s) => s.createGroupFromTaskIds);
   const arrangeTasksLinear = useAppStore((s) => s.arrangeTasksLinear);
+  const arrangeTasksSpherical = useAppStore((s) => s.arrangeTasksSpherical);
   const assignTaskFoldersAndRefitLanes = useAppStore(
     (s) => s.assignTaskFoldersAndRefitLanes,
   );
@@ -235,15 +236,16 @@ function CanvasInner() {
   );
 
   const onArrange = useCallback(
-    (direction: "horizontal" | "vertical") => {
+    (mode: "horizontal" | "vertical" | "spherical") => {
       const ids =
         getNodes()
           .filter((n) => n.type === "task" && n.selected)
           .map((n) => n.id) ?? [];
       if (ids.length === 0) return;
-      arrangeTasksLinear(ids, direction);
+      if (mode === "spherical") arrangeTasksSpherical(ids);
+      else arrangeTasksLinear(ids, mode);
     },
-    [arrangeTasksLinear, getNodes],
+    [arrangeTasksLinear, arrangeTasksSpherical, getNodes],
   );
 
   const paneClickRef = useRef({ t: 0, x: 0, y: 0 });
@@ -474,12 +476,13 @@ function CanvasInner() {
                 key={arrangeMenuKey}
                 defaultValue="_"
                 disabled={selectedTaskIds.length === 0}
-                title="等距排列已选任务"
-                className="md-field md-focus-ring max-w-[7.5rem] shrink-0 px-1.5 py-1.5 md-type-body-s text-md-on-surface shadow-lg disabled:cursor-not-allowed disabled:opacity-40 md-corner-sm"
+                title="按卡片占位与间距排列已选任务"
+                className="md-field md-focus-ring max-w-[9rem] shrink-0 px-1.5 py-1.5 md-type-body-s text-md-on-surface shadow-lg disabled:cursor-not-allowed disabled:opacity-40 md-corner-sm"
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "horizontal") onArrange("horizontal");
                   if (v === "vertical") onArrange("vertical");
+                  if (v === "spherical") onArrange("spherical");
                   setArrangeMenuKey((k) => k + 1);
                 }}
               >
@@ -488,6 +491,7 @@ function CanvasInner() {
                 </option>
                 <option value="horizontal">横向等距</option>
                 <option value="vertical">纵向等距</option>
+                <option value="spherical">球形排列</option>
               </select>
               <button
                 type="button"

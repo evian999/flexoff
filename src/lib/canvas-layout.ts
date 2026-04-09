@@ -1,3 +1,7 @@
+import {
+  LAYOUT_TASK_CARD_H,
+  LAYOUT_TASK_CARD_W,
+} from "@/lib/canvas-overlap";
 import type { Rect, TodoEdge, Vec2 } from "./types";
 
 /** 与 TaskNode 宽度、flow-build 默认布局一致的中心参考宽 */
@@ -78,6 +82,30 @@ export function defaultSphericalPositionInFolder(
 
   const p = fibonacciSpherePoint(idx, n);
   return sphereToCanvas(p, cx, cy, radius);
+}
+
+/**
+ * 以首卡左上角为锚，在 Fibonacci 球面投影上排第 slotIndex 张卡片（绝对坐标，卡片尺寸与互斥算法一致）。
+ */
+export function arrangementSphericalAbsolute(
+  anchorTopLeft: Vec2,
+  slotIndex: number,
+  total: number,
+  radius: number,
+): Vec2 {
+  const w = LAYOUT_TASK_CARD_W;
+  const h = LAYOUT_TASK_CARD_H;
+  const cx = anchorTopLeft.x + w / 2;
+  const cy = anchorTopLeft.y + h / 2;
+  const n = Math.max(1, total);
+  const idx = Math.min(Math.max(0, slotIndex), n - 1);
+  const p = fibonacciSpherePoint(idx, n);
+  const isoX = (p.x - p.z * 0.48) * 0.92;
+  const isoY = -p.y * 0.55 + (p.x + p.z) * 0.34;
+  return {
+    x: cx + isoX * radius - w / 2,
+    y: cy + isoY * radius - h / 2,
+  };
 }
 
 /**

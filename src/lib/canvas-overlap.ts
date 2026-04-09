@@ -1,10 +1,16 @@
 import type { Node } from "@xyflow/react";
+import type { Vec2 } from "@/lib/types";
 import { readFlowNodeSize } from "@/lib/folder-fit";
 
 /** 与画布 TaskNode 估算占位一致（max-w 280 + padding） */
-const TASK_W = 288;
-const TASK_H = 140;
-const GAP = 8;
+export const LAYOUT_TASK_CARD_W = 288;
+export const LAYOUT_TASK_CARD_H = 140;
+/** 排列与互斥推开时，卡片外沿之间的最小间隙 */
+export const LAYOUT_TASK_CARD_GAP = 12;
+
+const TASK_W = LAYOUT_TASK_CARD_W;
+const TASK_H = LAYOUT_TASK_CARD_H;
+const GAP = LAYOUT_TASK_CARD_GAP;
 const MAX_ITER = 160;
 
 function buildById(nodes: Node[]): Map<string, Node> {
@@ -130,6 +136,72 @@ export function separateOverlappingTaskNodes(nodes: Node[]): Node[] {
           w: B.w,
           h: B.h,
         };
+      }
+    }
+    if (!moved) break;
+  }
+
+  return next;
+}
+
+function rectsOverlapAbs(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+  gap: number,
+): boolean {
+  return !(
+    a.x + a.w + gap <= b.x ||
+    b.x + b.w + gap <= a.x ||
+    a.y + a.h + gap <= b.y ||
+    b.y + b.h + gap <= a.y
+  );
+}
+
+/**
+ * 对给定任务 id 的**绝对**左上角坐标做互斥（与画布节点分离规则一致：字典序靠后者被推开）。
+ * 用于「排列」后保证不与同批卡片重叠。
+ */
+export function separateOverlappingAbsolutePositions(
+  positions: Record<string, Vec2>,
+  ids: string[],
+  opts?: { w?: number; h?: number; gap?: number },
+): Record<string, Vec2> {
+  const w = opts?.w ?? LAYOUT_TASK_CARD_W;
+  const h = opts?.h ?? LAYOUT_TASK_CARD_H;
+  const gap = opts?.gap ?? LAYOUT_TASK_CARD_GAP;
+  const next: Record<string, Vec2> = { ...positions };
+  const sorted = [...ids].sort((a, b) => a.localeCompare(b));
+  if (sorted.length < 2) return next;
+
+  const rect = (id: string) => ({
+    id,
+    x: next[id]!.x,
+    y: next[id]!.y,
+    w,
+    h,
+  });
+
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let moved = false;
+    const rects = sorted.map((id) => rect(id));
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length; j++) {
+        const A = rects[i]!;
+        const B = rects[j]!;
+        if (!rectsOverlapAbs(A, B, gap)) continue;
+        const idJ = sorted[j]!;
+        const bAbs = { x: B.x, y: B.y };
+        const overlapX =
+          Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x);
+        const overlapY =
+          Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y);
+        const newAbs =
+          overlapX < overlapY
+            ? { x: A.x + A.w + gap, y: bAbs.y }
+            : { x: bAbs.x, y: A.y + A.h + gap };
+        next[idJ] = newAbs;
+        moved = true;
+        rects[j] = { id: B.id, x: newAbs.x, y: newAbs.y, w: B.w, h: B.h };
       }
     }
     if (!moved) break;

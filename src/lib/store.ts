@@ -22,9 +22,16 @@ import {
   taskFolderKey,
 } from "./types";
 import {
+  arrangementSphericalAbsolute,
   defaultSphericalPositionInFolder,
   taskHasAnyEdge,
 } from "@/lib/canvas-layout";
+import {
+  LAYOUT_TASK_CARD_GAP,
+  LAYOUT_TASK_CARD_H,
+  LAYOUT_TASK_CARD_W,
+  separateOverlappingAbsolutePositions,
+} from "@/lib/canvas-overlap";
 import {
   computeGroupRectFromTaskPositions,
   mergeFolderRectsWithTaskBounds,
@@ -123,11 +130,13 @@ type AppState = AppData & {
   setEdges: (edges: TodoEdge[]) => void;
   setTaskPosition: (taskId: string, pos: Vec2) => void;
   setPositions: (positions: Record<string, Vec2>) => void;
-  /** 将选中任务按横向或纵向等距排布（基于当前第一个的锚点位置） */
+  /** 将选中任务按横向或纵向等距排布（基于当前第一个的锚点位置，间距按卡片尺寸+间隙） */
   arrangeTasksLinear: (
     taskIds: string[],
     direction: "horizontal" | "vertical",
   ) => void;
+  /** Fibonacci 球面投影散落（锚点为第一个选中任务的左上角），再互斥推开避免重叠 */
+  arrangeTasksSpherical: (taskIds: string[]) => void;
   createGroupFromTaskIds: (taskIds: string[], name?: string) => void;
   removeGroup: (groupId: string) => void;
   updateGroupName: (groupId: string, name: string) => void;
@@ -665,16 +674,80 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const firstId = sorted[0]!;
       const anchor = positions[firstId] ?? { x: 120, y: 120 };
-      const gapX = 252;
-      const gapY = 96;
+      const stepX = LAYOUT_TASK_CARD_W + LAYOUT_TASK_CARD_GAP;
+      const stepY = LAYOUT_TASK_CARD_H + LAYOUT_TASK_CARD_GAP;
 
       for (let i = 0; i < sorted.length; i++) {
         const id = sorted[i]!;
         positions[id] =
           direction === "horizontal"
-            ? { x: anchor.x + i * gapX, y: anchor.y }
-            : { x: anchor.x, y: anchor.y + i * gapY };
+            ? { x: anchor.x + i * stepX, y: anchor.y }
+            : { x: anchor.x, y: anchor.y + i * stepY };
       }
+
+      Object.assign(
+        positions,
+        separateOverlappingAbsolutePositions(positions, sorted),
+      );
+
+      const vis = canvasLayoutVisibleIds(s.tasks, s.navFolderId, s.edges);
+      const merged = mergeFolderRectsWithTaskBounds(
+        s.layout.folderRects,
+        s.tasks,
+        s.groups,
+        positions,
+        s.layout.groupRects,
+        vis,
+      );
+      const packed = mergeFoldersWithMaybePack(
+        s,
+        merged,
+        positions,
+        s.layout.groupRects,
+      );
+
+      return {
+        layout: {
+          ...s.layout,
+          positions: packed.positions,
+          folderRects: packed.folderRects,
+          groupRects: packed.groupRects,
+        },
+      };
+    });
+    get().scheduleSave();
+  },
+
+  arrangeTasksSpherical: (taskIds) => {
+    if (taskIds.length === 0) return;
+    set((s) => {
+      const uniq = [...new Set(taskIds)].filter((id) =>
+        s.tasks.some((t) => t.id === id),
+      );
+      if (uniq.length === 0) return s;
+
+      const positions = { ...s.layout.positions };
+      const sorted = [...uniq].sort((a, b) => {
+        const pa = positions[a] ?? { x: 0, y: 0 };
+        const pb = positions[b] ?? { x: 0, y: 0 };
+        if (pa.y !== pb.y) return pa.y - pb.y;
+        return pa.x - pb.x;
+      });
+
+      const firstId = sorted[0]!;
+      const anchor = positions[firstId] ?? { x: 120, y: 120 };
+      const n = sorted.length;
+      const radius = Math.max(100, 50 * Math.sqrt(n));
+
+      for (let i = 0; i < n; i++) {
+        const id = sorted[i]!;
+        positions[id] = arrangementSphericalAbsolute(anchor, i, n, radius);
+      }
+
+      Object.assign(
+        positions,
+        separateOverlappingAbsolutePositions(positions, sorted),
+      );
 
       const vis = canvasLayoutVisibleIds(s.tasks, s.navFolderId, s.edges);
       const merged = mergeFolderRectsWithTaskBounds(
