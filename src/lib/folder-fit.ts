@@ -197,8 +197,6 @@ function expandFolderRectToContent(
   groupRects: LayoutState["groupRects"],
   canvasVisibleTaskIds: Set<string>,
 ): Rect {
-  const anyTaskInFolder = tasks.some((t) => taskFolderKey(t) === fk);
-
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -240,21 +238,18 @@ function expandFolderRectToContent(
   const EMPTY_MIN_W = 160;
   const EMPTY_MIN_H = 160;
 
+  const def = defaultInboxRect();
+  const baseX = Number.isFinite(rect.x) ? rect.x : def.x;
+  const baseY = Number.isFinite(rect.y) ? rect.y : def.y;
+  const baseW = Number.isFinite(rect.w) && rect.w > 0 ? rect.w : def.w;
+  const baseH = Number.isFinite(rect.h) && rect.h > 0 ? rect.h : def.h;
+
   if (!has) {
-    const def = defaultInboxRect();
-    const x = Number.isFinite(rect.x) ? rect.x : def.x;
-    const y = Number.isFinite(rect.y) ? rect.y : def.y;
-    // 文件夹内有任务但全部为已完成：用默认尺寸（与「空文件夹」占位一致）
-    if (anyTaskInFolder) {
-      return { x, y, w: def.w, h: def.h };
-    }
-    const w = Number.isFinite(rect.w) && rect.w > 0 ? rect.w : def.w;
-    const h = Number.isFinite(rect.h) && rect.h > 0 ? rect.h : def.h;
     return {
-      x,
-      y,
-      w: Math.max(w, EMPTY_MIN_W),
-      h: Math.max(h, EMPTY_MIN_H),
+      x: baseX,
+      y: baseY,
+      w: Math.max(baseW, EMPTY_MIN_W),
+      h: Math.max(baseH, EMPTY_MIN_H),
     };
   }
 
@@ -263,15 +258,25 @@ function expandFolderRectToContent(
   const contentR = maxX + pad;
   const contentB = maxY + pad;
 
+  /** 与用户拖拽/缩放后的栏取并集：只扩大不缩小，避免切换「全部文件夹」时丢尺寸 */
+  const userL = baseX;
+  const userT = baseY;
+  const userR = baseX + baseW;
+  const userB = baseY + baseH;
+  const unionL = Math.min(userL, contentL);
+  const unionT = Math.min(userT, contentT);
+  const unionR = Math.max(userR, contentR);
+  const unionB = Math.max(userB, contentB);
+
   return {
-    x: contentL,
-    y: contentT,
-    w: Math.max(contentR - contentL, EMPTY_MIN_W),
-    h: Math.max(contentB - contentT, EMPTY_MIN_H),
+    x: unionL,
+    y: unionT,
+    w: Math.max(unionR - unionL, EMPTY_MIN_W),
+    h: Math.max(unionB - unionT, EMPTY_MIN_H),
   };
 }
 
-/** 在保留用户拖拽/缩放尺寸的前提下，把各文件夹矩形扩到能包住画布可见的任务与任务组 */
+/** 在保留用户拖拽/缩放尺寸的前提下，与各文件夹内可见内容取并集（必要时扩大，不缩小） */
 export function mergeFolderRectsWithTaskBounds(
   folderRects: Record<string, Rect>,
   tasks: Task[],

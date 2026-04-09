@@ -227,6 +227,32 @@ function CanvasInner() {
     });
   }, [getNodes, fitView]);
 
+  const skipNavFolderFitOnMount = useRef(true);
+  useEffect(() => {
+    if (skipNavFolderFitOnMount.current) {
+      skipNavFolderFitOnMount.current = false;
+      return;
+    }
+    let cancelled = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const taskNodes = getNodes().filter((n) => n.type === "task");
+        if (taskNodes.length === 0) return;
+        void fitView({
+          nodes: taskNodes,
+          padding: 0.12,
+          duration: 320,
+          maxZoom: 1.5,
+          minZoom: 0.15,
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [navFolderId, fitView, getNodes]);
+
   const selectedTaskIds = useMemo(
     () =>
       nodes
