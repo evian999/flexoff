@@ -40,10 +40,22 @@ export async function GET() {
   } catch (e) {
     console.error("[api/data] GET failed:", e);
     if (isSupabaseConfigured()) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const code =
+        e && typeof e === "object" && "code" in e
+          ? String((e as { code: unknown }).code)
+          : undefined;
+      const details =
+        e && typeof e === "object" && "details" in e
+          ? String((e as { details: unknown }).details)
+          : undefined;
       return NextResponse.json(
         {
           error:
-            "从数据库加载失败，请检查 Supabase 配置与 SQL 迁移是否已执行",
+            "从数据库加载失败，请检查 Supabase 项目是否暂停、环境变量与 SQL 迁移",
+          message: msg,
+          ...(code ? { code } : {}),
+          ...(details && details !== "null" ? { details } : {}),
         },
         { status: 503 },
       );

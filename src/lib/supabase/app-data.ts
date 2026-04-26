@@ -83,11 +83,10 @@ export async function loadAppDataFromSupabase(
     .eq("user_id", userId);
   if (e2) throw e2;
 
+  /** 用 * 避免线上未跑全量迁移时，因列不存在导致整表查询失败（如缺 mentions） */
   const { data: taskRows, error: e3 } = await sb
     .from("tasks")
-    .select(
-      "id,user_id,title,created_at,completed_at,result,folder_id,priority,due_at,progress_current,progress_total,abandoned_at,abandon_reason,spaced_repetition_enabled,mentions",
-    )
+    .select("*")
     .eq("user_id", userId);
   if (e3) throw e3;
 
