@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Archive,
   ArchiveRestore,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import { resolveTagColor } from "@/lib/tag-draft";
+import { useScrollbarAutoHide } from "@/hooks/useScrollbarAutoHide";
 
 type ListSidebarProps = {
   onRequestCollapse?: () => void;
@@ -52,6 +53,8 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagEditName, setTagEditName] = useState("");
   const [tagEditColor, setTagEditColor] = useState("");
+  const scrollRef = useRef<HTMLElement>(null);
+  useScrollbarAutoHide(scrollRef);
 
   const {
     allCount,
@@ -149,7 +152,10 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
   );
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 backdrop-blur-sm sm:w-80">
+    <aside
+      ref={scrollRef}
+      className="scrollbar-auto-hide flex h-full min-h-0 w-72 shrink-0 flex-col overflow-y-auto border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 backdrop-blur-sm sm:w-80"
+    >
       <div className="border-b border-[var(--md-sys-color-outline)] p-3">
         <p className="md-type-label-s mb-2 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -332,16 +338,15 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3">
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <p className="md-type-label-s mb-2 flex shrink-0 items-center gap-1.5">
+      <div className="p-3">
+        <p className="md-type-label-s mb-2 flex items-center gap-1.5">
           <Tag className="h-3 w-3" />
           标签筛选
         </p>
         <button
           type="button"
           onClick={() => setNavTagId(null)}
-          className={`mb-2 shrink-0 md-corner-md px-2 py-1.5 text-left md-type-body-s ${
+          className={`mb-2 md-corner-md px-2 py-1.5 text-left md-type-body-s ${
             navTagId === null
               ? "bg-[var(--md-sys-color-surface-container-highest)] text-md-on-surface"
               : "text-md-on-surface-variant md-state-hover"
@@ -349,7 +354,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
         >
           不限标签
         </button>
-        <ul className="flex shrink-0 flex-col gap-1">
+        <ul className="flex flex-col gap-1">
           {tags.map((t, tagIdx) => (
             <li key={t.id} className="group flex flex-col gap-1 py-0.5">
               {editingTagId === t.id ? (
@@ -471,7 +476,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
             </li>
           ))}
         </ul>
-        <div className="mt-2 flex shrink-0 gap-1 border-t border-[var(--md-sys-color-outline)] pt-2">
+        <div className="mt-2 flex gap-1 border-t border-[var(--md-sys-color-outline)] pt-2">
           <input
             className="md-field md-focus-ring min-w-0 flex-1 px-2 py-1.5 md-type-body-s"
             placeholder="新标签…"
@@ -496,7 +501,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
           </button>
         </div>
 
-        <div className="mt-4 shrink-0 border-t border-[var(--md-sys-color-outline)] pt-3">
+        <div className="mt-4 border-t border-[var(--md-sys-color-outline)] pt-3">
         <p className="md-type-label-s mb-2 flex items-center gap-1.5">
           <AtSign className="h-3 w-3" />
           涉及的人
@@ -542,7 +547,6 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
             </li>
           ))}
         </ul>
-        </div>
         </div>
       </div>
     </aside>

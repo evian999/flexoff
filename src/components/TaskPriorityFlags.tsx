@@ -41,7 +41,7 @@ export function TaskPriorityFlags({ value, onChange, size = "md" }: Props) {
           key={p}
           type="button"
           title={title}
-          className={`rounded-md p-1 transition-all ${
+          className={`rounded-md p-1 transition-[opacity,box-shadow,background-color] ${
             current === p
               ? "bg-white/10 ring-1 ring-white/25"
               : "opacity-40 hover:opacity-100"

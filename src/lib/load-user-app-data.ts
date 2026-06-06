@@ -37,8 +37,10 @@ function mergeTaskHttpPrefs(
 export async function loadAppDataForUser(userId: string): Promise<AppData> {
   if (isSupabaseConfigured()) {
     try {
-      const data = await loadAppDataFromSupabase(userId);
-      const th = await loadTaskHttpPrefsFromSupabase(userId);
+      const [data, th] = await Promise.all([
+        loadAppDataFromSupabase(userId),
+        loadTaskHttpPrefsFromSupabase(userId),
+      ]);
       const merged = mergeTaskHttpPrefs(data, th);
       setMemoryStore(merged);
       return merged;

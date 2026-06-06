@@ -52,6 +52,14 @@ next-env.d.ts
 .vercel
 .backup
 
+# Cursor / agent local config
+/.cursor/
+/.agent/
+/.agents/
+
+# local clone cache (skills are copied to .cursor/skills; re-clone to update)
+/.vendor/
+
 # one-off API dumps (may contain private task titles)
 flex-tasks-fetched.json
 tasks-http-dump.json

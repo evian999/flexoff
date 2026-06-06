@@ -7,9 +7,10 @@ import { useAppStore } from "@/lib/store";
 type Props = {
   task: Task | null;
   onClose: () => void;
+  onAbandoned?: (task: Task) => void;
 };
 
-export function AbandonTaskDialog({ task, onClose }: Props) {
+export function AbandonTaskDialog({ task, onClose, onAbandoned }: Props) {
   const abandonTask = useAppStore((s) => s.abandonTask);
   const [reason, setReason] = useState("");
 
@@ -71,6 +72,7 @@ export function AbandonTaskDialog({ task, onClose }: Props) {
             disabled={!reason.trim()}
             onClick={() => {
               abandonTask(task.id, reason);
+              onAbandoned?.(task);
               onClose();
             }}
           >

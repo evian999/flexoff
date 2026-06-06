@@ -79,6 +79,10 @@ function CanvasInner() {
   const folders = useAppStore((s) => s.folders);
   const navFolderId = useAppStore((s) => s.navFolderId);
   const setNavFolderId = useAppStore((s) => s.setNavFolderId);
+  const navTagId = useAppStore((s) => s.navTagId);
+  const navMention = useAppStore((s) => s.navMention);
+  const setNavTagId = useAppStore((s) => s.setNavTagId);
+  const setNavMention = useAppStore((s) => s.setNavMention);
   const storeEdges = useAppStore((s) => s.edges);
   const addEdgeToStore = useAppStore((s) => s.addEdge);
   const removeEdge = useAppStore((s) => s.removeEdge);
@@ -297,6 +301,13 @@ function CanvasInner() {
     [nodes],
   );
 
+  const navTagLabel = useMemo(() => {
+    if (!navTagId) return null;
+    return tags.find((t) => t.id === navTagId)?.name ?? navTagId;
+  }, [navTagId, tags]);
+
+  const navMentionTrimmed = navMention?.trim() || null;
+
   const onFitVisibleTasks = useCallback(() => {
     const taskNodes = getNodes().filter((n) => n.type === "task");
     if (taskNodes.length === 0) return;
@@ -496,18 +507,19 @@ function CanvasInner() {
   const selectionOnDrag = canvasTool === "select";
 
   return (
-    <div className="relative h-[calc(100vh-3.5rem)] w-full">
-      <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)]">
+    <div className="relative h-full min-h-0 w-full flex-1">
+      <div className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-col gap-2">
         <div
           className="flex flex-nowrap items-center gap-2 overflow-x-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] px-2 py-1.5 md-corner-md shadow-lg [scrollbar-width:thin]"
           role="toolbar"
-          aria-label="画布工具栏"
+          aria-label="画布：数据与筛选"
         >
           <select
             className="md-field md-focus-ring max-w-[min(200px,40vw)] shrink-0 px-2 py-1.5 md-type-body-s text-md-on-surface md-corner-sm"
             value={navFolderId}
             onChange={(e) => onNavSelect(e.target.value)}
             title="画布按文件夹筛选"
+            aria-label="按文件夹筛选画布任务"
           >
             <option value="all">全部文件夹</option>
             <option value={INBOX_FOLDER_KEY}>收件箱</option>
@@ -522,6 +534,7 @@ function CanvasInner() {
           <button
             type="button"
             title="导出任务流布局 JSON（连线端点、任务与组位置、文件夹尺寸）"
+            aria-label="导出任务流布局 JSON"
             className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface"
             onClick={onExportFlexOffJson}
           >
@@ -534,6 +547,11 @@ function CanvasInner() {
                 ? "仅显示与未完成下游相关的已完成（默认）"
                 : "显示本文件夹内全部任务（含已无后续步骤的已完成）"
             }
+            aria-label={
+              showCompletedOnCanvas
+                ? "切换为仅显示与未完成相关的已完成任务"
+                : "切换为显示全部已完成任务"
+            }
             className={`md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface ${
               showCompletedOnCanvas ? "border-md-primary/50 text-md-primary" : ""
             }`}
@@ -542,18 +560,49 @@ function CanvasInner() {
           >
             <ListChecks className="h-3.5 w-3.5" />
           </button>
+          {navTagLabel ? (
+            <button
+              type="button"
+              className="md-corner-sm shrink-0 border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-high)] px-2 py-1 md-type-label-m text-md-on-surface md-focus-ring"
+              title="清除标签筛选（与列表模式一致）"
+              onClick={() => setNavTagId(null)}
+            >
+              #{navTagLabel}
+              <span className="ml-1 text-md-on-surface-variant">×</span>
+            </button>
+          ) : null}
+          {navMentionTrimmed ? (
+            <button
+              type="button"
+              className="md-corner-sm shrink-0 border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container-high)] px-2 py-1 md-type-label-m text-md-on-surface md-focus-ring"
+              title="清除 @提及筛选"
+              onClick={() => setNavMention(null)}
+            >
+              @{navMentionTrimmed}
+              <span className="ml-1 text-md-on-surface-variant">×</span>
+            </button>
+          ) : null}
+        </div>
+        <div
+          className="flex flex-nowrap items-center gap-2 overflow-x-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] px-2 py-1.5 md-corner-md shadow-lg [scrollbar-width:thin]"
+          role="toolbar"
+          aria-label="画布：视口与工具"
+        >
           <button
             type="button"
             title="视口回到画布坐标原点（左上）"
+            aria-label="视口回到画布原点"
             className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface"
             onClick={onCanvasScrollTop}
           >
             <ArrowUpToLine className="h-3.5 w-3.5" />
           </button>
-          <div className="md-segmented shrink-0 shadow-lg">
+          <div className="md-segmented shrink-0 shadow-lg" role="group" aria-label="选择或抓手模式">
             <button
               type="button"
               title="选择模式：可拖任务；仅在画布空白处左键斜拖=框选；中键/右键拖或按住空格再左键拖=平移"
+              aria-label="选择模式"
+              aria-pressed={canvasTool === "select"}
               className={`md-segment px-2 py-1.5 ${canvasTool === "select" ? "md-segment--active" : "md-segment--inactive"}`}
               onClick={() => setCanvasTool("select")}
             >
@@ -562,6 +611,8 @@ function CanvasInner() {
             <button
               type="button"
               title="抓手模式：左键拖=平移画布；任务不可拖动"
+              aria-label="抓手模式"
+              aria-pressed={canvasTool === "hand"}
               className={`md-segment px-2 py-1.5 ${canvasTool === "hand" ? "md-segment--active" : "md-segment--inactive"}`}
               onClick={() => setCanvasTool("hand")}
             >
@@ -574,6 +625,9 @@ function CanvasInner() {
               canvasToolbarExpanded
                 ? "向右收起侧栏工具"
                 : "向左展开工具栏"
+            }
+            aria-label={
+              canvasToolbarExpanded ? "收起扩展工具栏" : "展开扩展工具栏"
             }
             className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center justify-center px-2 py-1.5 hover:border-md-primary/50 hover:text-md-on-surface"
             onClick={() => setCanvasToolbarExpanded((v) => !v)}
@@ -597,6 +651,7 @@ function CanvasInner() {
               <button
                 type="button"
                 disabled={visibleTaskNodeCount === 0}
+                aria-label="缩放视口以框住全部任务节点"
                 className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center gap-1 px-2 py-1.5 md-type-body-s shadow-lg enabled:hover:border-md-primary/50 disabled:cursor-not-allowed disabled:opacity-40"
                 title="缩放并平移视口，框住当前画布上的全部任务（不含文件夹条与组框）"
                 onClick={onFitVisibleTasks}
@@ -607,6 +662,7 @@ function CanvasInner() {
               <button
                 type="button"
                 disabled={!canGroup}
+                aria-label="将多选任务建组"
                 title="建组（多选 ≥2 个任务）"
                 className="inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] px-2 py-1.5 text-zinc-200 shadow-lg enabled:hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={onCreateGroup}
@@ -618,6 +674,7 @@ function CanvasInner() {
                 defaultValue="_"
                 disabled={selectedTaskIds.length === 0}
                 title="按卡片占位与间距排列已选任务"
+                aria-label="排列已选任务"
                 className="md-field md-focus-ring max-w-[9rem] shrink-0 px-1.5 py-1.5 md-type-body-s text-md-on-surface shadow-lg disabled:cursor-not-allowed disabled:opacity-40 md-corner-sm"
                 onChange={(e) => {
                   const v = e.target.value;
@@ -636,6 +693,7 @@ function CanvasInner() {
               </select>
               <button
                 type="button"
+                aria-label="打开画布帮助与快捷键说明"
                 className="md-btn-tonal md-focus-ring inline-flex shrink-0 items-center gap-1 px-2 py-1.5 md-type-body-s shadow-lg hover:border-md-primary/50"
                 title="画布说明（含快捷键与连线删除方式）"
                 onClick={() => setHelpOpen(true)}
@@ -704,11 +762,13 @@ function CanvasInner() {
         <Controls
           className="!m-3 !border-[var(--md-sys-color-outline)] !bg-[var(--md-sys-color-surface-container)] !shadow-lg [&_button]:!fill-[var(--md-sys-color-on-surface-variant)] [&_button:hover]:!fill-[var(--md-sys-color-on-surface)]"
         />
-        <MiniMap
-          className="!m-3 !rounded-md !border !border-[var(--md-sys-color-outline)] !bg-[var(--md-sys-color-surface-container-low)]"
-          nodeColor={() => "rgba(56,189,248,0.35)"}
-          maskColor="rgba(0,0,0,0.45)"
-        />
+        <div className="hidden md:block">
+          <MiniMap
+            className="!m-3 !max-h-[120px] !rounded-md !border !border-[var(--md-sys-color-outline)] !bg-[var(--md-sys-color-surface-container-low)] md:!max-h-[140px]"
+            nodeColor={() => "rgba(56,189,248,0.35)"}
+            maskColor="rgba(0,0,0,0.45)"
+          />
+        </div>
       </ReactFlow>
     </div>
   );

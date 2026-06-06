@@ -9,9 +9,11 @@ import { TagHashTextInput } from "@/components/TagHashTextInput";
 type Props = {
   task: Task | null;
   onClose: () => void;
+  /** 成功写入完成状态后回调（用于读屏播报等） */
+  onCompleted?: (task: Task) => void;
 };
 
-export function CompleteTaskDialog({ task, onClose }: Props) {
+export function CompleteTaskDialog({ task, onClose, onCompleted }: Props) {
   const tasks = useAppStore((s) => s.tasks);
   const tags = useAppStore((s) => s.tags);
   const completeTask = useAppStore((s) => s.completeTask);
@@ -47,6 +49,7 @@ export function CompleteTaskDialog({ task, onClose }: Props) {
   const submit = () => {
     const filtered = steps.filter((s) => s.text.trim() || s.linkTaskId);
     completeTask(task.id, result, filtered);
+    onCompleted?.(task);
     onClose();
   };
 

@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import {
   INBOX_FOLDER_KEY,
+  ARCHIVE_FOLDER_KEY,
   RECENT_DELETED_FOLDER_KEY,
   allCanvasFolderLaneKeys,
   defaultFolderRectForKey,
@@ -104,8 +105,12 @@ type AppState = AppData & {
   /** 列表模式搜索（不入库，仅前端筛选） */
   listSearchQuery: string;
   listSearchOpen: boolean;
+  /** 全局搜索选中任务后，列表模式消费并滚动定位 */
+  listFocusTaskId: string | null;
   setListSearchQuery: (q: string) => void;
   setListSearchOpen: (open: boolean) => void;
+  focusTaskFromSearch: (taskId: string) => void;
+  clearListFocusTaskId: () => void;
   setMode: (m: "list" | "canvas") => void;
   setNavFolderId: (id: NavFolderId) => void;
   setNavTagId: (id: string | null) => void;
@@ -203,14 +208,44 @@ export const useAppStore = create<AppState>((set, get) => ({
   navMention: null,
   listSearchQuery: "",
   listSearchOpen: false,
+  listFocusTaskId: null,
 
   setListSearchQuery: (q) => {
     set({ listSearchQuery: q });
   },
 
   setListSearchOpen: (open) => {
-    set({ listSearchOpen: open });
+    set((s) => ({
+      listSearchOpen: open,
+      ...(open ? {} : { listSearchQuery: "" }),
+    }));
   },
+
+  focusTaskFromSearch: (taskId) => {
+    const task = get().tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    let navFolderId: NavFolderId = "all";
+    if (task.folderId === RECENT_DELETED_FOLDER_KEY) {
+      navFolderId = RECENT_DELETED_FOLDER_KEY;
+    } else if (!task.folderId) {
+      navFolderId = INBOX_FOLDER_KEY;
+    } else if (task.folderId === ARCHIVE_FOLDER_KEY) {
+      navFolderId = ARCHIVE_FOLDER_KEY;
+    } else {
+      navFolderId = task.folderId;
+    }
+    set({
+      mode: "list",
+      navFolderId,
+      navTagId: null,
+      navMention: null,
+      listFocusTaskId: taskId,
+      listSearchOpen: false,
+      listSearchQuery: "",
+    });
+  },
+
+  clearListFocusTaskId: () => set({ listFocusTaskId: null }),
 
   setMode: (m) =>
     set((s) => ({
@@ -274,6 +309,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       navMention: null,
       listSearchQuery: "",
       listSearchOpen: false,
+      listFocusTaskId: null,
       saveError: null,
     });
     get().scheduleSave();

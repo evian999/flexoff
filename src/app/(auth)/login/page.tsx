@@ -54,9 +54,15 @@ function LoginForm() {
       <div className="w-full max-w-sm rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/90 p-8 shadow-2xl shadow-cyan-500/[0.07] backdrop-blur-xl">
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="text-xs font-medium text-zinc-400">用户名</label>
+            <label
+              htmlFor="login-username"
+              className="text-xs font-medium text-zinc-400"
+            >
+              用户名
+            </label>
             <input
-              className="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-[var(--bg-deep)] px-4 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-[var(--accent)]"
+              id="login-username"
+              className="md-focus-ring mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-[var(--bg-deep)] px-4 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-[var(--accent)]"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -64,17 +70,29 @@ function LoginForm() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-zinc-400">密码</label>
+            <label
+              htmlFor="login-password"
+              className="text-xs font-medium text-zinc-400"
+            >
+              密码
+            </label>
             <input
+              id="login-password"
               type="password"
-              className="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-[var(--bg-deep)] px-4 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-[var(--accent)]"
+              className="md-focus-ring mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-[var(--bg-deep)] px-4 py-3 text-sm text-zinc-100 outline-none transition-colors focus:border-[var(--accent)]"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           {error ? (
-            <p className="text-center text-xs text-red-400">{error}</p>
+            <p
+              className="text-center text-xs text-red-400"
+              role="alert"
+              aria-live="polite"
+            >
+              {error}
+            </p>
           ) : null}
           <button
             type="submit"
