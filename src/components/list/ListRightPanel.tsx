@@ -1,11 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  ARCHIVE_FOLDER_KEY,
-  INBOX_FOLDER_KEY,
-  RECENT_DELETED_FOLDER_KEY,
-} from "@/lib/types";
+import { navFolderDisplayName } from "@/lib/list-nav-filter";
 import { useAppStore } from "@/lib/store";
 
 type Props = {
@@ -27,13 +23,10 @@ export function ListRightPanel({
   const folders = useAppStore((s) => s.folders);
   const tags = useAppStore((s) => s.tags);
 
-  const folderLine = useMemo(() => {
-    if (navFolderId === "all") return "全部文件夹";
-    if (navFolderId === INBOX_FOLDER_KEY) return "收件箱";
-    if (navFolderId === ARCHIVE_FOLDER_KEY) return "归档";
-    if (navFolderId === RECENT_DELETED_FOLDER_KEY) return "最近删除";
-    return folders.find((f) => f.id === navFolderId)?.name ?? "文件夹";
-  }, [navFolderId, folders]);
+  const folderLine = useMemo(
+    () => navFolderDisplayName(navFolderId, folders),
+    [navFolderId, folders],
+  );
 
   const tagLine = useMemo(() => {
     if (!navTagId) return null;

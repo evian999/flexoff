@@ -5,6 +5,8 @@ import {
   Archive,
   ArchiveRestore,
   AtSign,
+  Calendar,
+  CalendarRange,
   FolderOpen,
   Inbox,
   LayoutGrid,
@@ -17,11 +19,14 @@ import {
 import {
   ARCHIVE_FOLDER_KEY,
   INBOX_FOLDER_KEY,
+  NEXT_7_DAYS_NAV_KEY,
   RECENT_DELETED_FOLDER_KEY,
+  TODAY_NAV_KEY,
   type NavFolderId,
 } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import { resolveTagColor } from "@/lib/tag-draft";
+import { countIncompleteForNav } from "@/lib/list-nav-filter";
 import { useScrollbarAutoHide } from "@/hooks/useScrollbarAutoHide";
 
 type ListSidebarProps = {
@@ -59,6 +64,8 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
   const {
     allCount,
     inboxCount,
+    todayCount,
+    next7Count,
     archiveCount,
     trashCount,
     folderCounts,
@@ -84,7 +91,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
           trashCount += 1;
           continue;
         }
-        if (task.completedAt) continue;
+        if (task.completedAt || task.abandonedAt) continue;
         incompleteAll += 1;
         for (const tid of task.tagIds ?? []) {
           if (tagCounts[tid] !== undefined) tagCounts[tid] += 1;
@@ -107,9 +114,17 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
           (a, b) =>
             b.count - a.count || a.label.localeCompare(b.label, "zh-CN"),
         );
+      const incomplete = tasks.filter(
+        (t) =>
+          !t.completedAt &&
+          !t.abandonedAt &&
+          t.folderId !== RECENT_DELETED_FOLDER_KEY,
+      );
       return {
         allCount: incompleteAll,
         inboxCount,
+        todayCount: countIncompleteForNav(incomplete, TODAY_NAV_KEY),
+        next7Count: countIncompleteForNav(incomplete, NEXT_7_DAYS_NAV_KEY),
         archiveCount,
         trashCount,
         folderCounts,
@@ -159,8 +174,8 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
       <div className="border-b border-[var(--md-sys-color-outline)] p-3">
         <p className="md-type-label-s mb-2 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <LayoutGrid className="h-3 w-3 shrink-0" />
-            <span className="truncate">文件夹视图</span>
+            <Calendar className="h-3 w-3 shrink-0" />
+            <span className="truncate">智能清单</span>
           </span>
           {onRequestCollapse ? (
             <button
@@ -176,16 +191,37 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
         </p>
         <nav className="flex flex-col gap-0.5">
           {navBtn(
+            TODAY_NAV_KEY,
+            "今天",
+            <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            todayCount,
+          )}
+          {navBtn(
+            NEXT_7_DAYS_NAV_KEY,
+            "最近7天",
+            <CalendarRange className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            next7Count,
+          )}
+          {navBtn(
+            INBOX_FOLDER_KEY,
+            "收集箱",
+            <Inbox className="h-3.5 w-3.5 shrink-0 opacity-70" />,
+            inboxCount,
+          )}
+        </nav>
+      </div>
+
+      <div className="border-b border-[var(--md-sys-color-outline)] p-3">
+        <p className="md-type-label-s mb-2 flex items-center gap-1.5">
+          <LayoutGrid className="h-3 w-3 shrink-0" />
+          清单
+        </p>
+        <nav className="flex flex-col gap-0.5">
+          {navBtn(
             "all",
             "全部任务",
             <LayoutGrid className="h-3.5 w-3.5 shrink-0 opacity-70" />,
             allCount,
-          )}
-          {navBtn(
-            INBOX_FOLDER_KEY,
-            "收件箱",
-            <Inbox className="h-3.5 w-3.5 shrink-0 opacity-70" />,
-            inboxCount,
           )}
           {folders.map((f) => (
             <div key={f.id} className="group flex flex-col gap-1 rounded-lg py-0.5">

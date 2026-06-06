@@ -17,6 +17,8 @@ import {
   INBOX_FOLDER_KEY,
   ARCHIVE_FOLDER_KEY,
   RECENT_DELETED_FOLDER_KEY,
+  NEXT_7_DAYS_NAV_KEY,
+  TODAY_NAV_KEY,
   allCanvasFolderLaneKeys,
   defaultFolderRectForKey,
   defaultInboxRect,
@@ -89,7 +91,14 @@ function mergeFoldersWithMaybePack(
 }
 
 function resolveNavToTaskFolderId(nav: NavFolderId): string | undefined {
-  if (nav === "all" || nav === INBOX_FOLDER_KEY) return undefined;
+  if (
+    nav === "all" ||
+    nav === INBOX_FOLDER_KEY ||
+    nav === TODAY_NAV_KEY ||
+    nav === NEXT_7_DAYS_NAV_KEY
+  ) {
+    return undefined;
+  }
   return nav;
 }
 

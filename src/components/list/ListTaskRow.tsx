@@ -3,14 +3,15 @@
 import { memo, useRef, useState } from "react";
 import {
   ArchiveRestore,
-  Ban,
+  FolderOpen,
+  Inbox,
   Pencil,
   Plus,
-  Trash2,
 } from "lucide-react";
 import type { Folder, Tag, Task, TodoEdge } from "@/lib/types";
 import {
   ARCHIVE_FOLDER_KEY,
+  INBOX_FOLDER_KEY,
   RECENT_DELETED_FOLDER_KEY,
   taskFolderKey,
 } from "@/lib/types";
@@ -19,6 +20,7 @@ import { TagBadge } from "@/components/TagBadge";
 import { TagHashTextInput } from "@/components/TagHashTextInput";
 import { normalizeMentionList } from "@/lib/mentions";
 import { listCheckboxStyle } from "@/lib/task-priority-ui";
+import { formatListTaskTailDate } from "@/lib/list-due-buckets";
 import { nextTaskPreviewLabel } from "@/lib/list-task-next";
 import type { ListDensity } from "@/lib/list-ui-prefs";
 
@@ -99,7 +101,7 @@ function ListTaskRowInner({
   onSaveTitleFromBlur,
   editingTaskId,
   onRequestCompleteDialog,
-  onRequestAbandon,
+  onRequestAbandon: _onRequestAbandon,
   jumpToTask,
   registerCardRef,
   listElement = "li",
@@ -126,6 +128,18 @@ function ListTaskRowInner({
 
   if (isCompact && !showFull) {
     const Root = listElement === "div" ? "div" : "li";
+    const tailDate = formatListTaskTailDate(task);
+    const taskTags = (task.tagIds ?? [])
+      .map((id) => tags.find((t) => t.id === id))
+      .filter(Boolean) as Tag[];
+    const fk = taskFolderKey(task);
+    const FolderIcon =
+      fk === INBOX_FOLDER_KEY || !task.folderId ? Inbox : FolderOpen;
+    const folderTitle =
+      fk === INBOX_FOLDER_KEY || !task.folderId
+        ? "收集箱"
+        : (folders.find((f) => f.id === fk)?.name ?? "文件夹");
+
     return (
       <Root
         id={`list-task-${task.id}`}
@@ -184,42 +198,27 @@ function ListTaskRowInner({
             {task.title}
           </span>
         </div>
-        <div className="list-row-hover-actions flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            className="md-focus-ring flex h-9 w-9 items-center justify-center rounded-[10px] text-md-on-surface-variant hover:text-md-primary"
-            title="编辑标题"
-            aria-label="编辑标题"
-            onClick={() => {
-              onSelect?.(task.id);
-              skipNextTitleBlurSave.current = false;
-              onStartEditTitle(task.id, task.title);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          {!task.completedAt &&
-          !task.abandonedAt &&
-          task.folderId !== RECENT_DELETED_FOLDER_KEY ? (
-            <button
-              type="button"
-              className="md-focus-ring flex h-9 w-9 items-center justify-center rounded-[10px] text-amber-500/90 hover:bg-amber-500/10"
-              title="放弃"
-              aria-label="放弃任务"
-              onClick={() => onRequestAbandon(task)}
-            >
-              <Ban className="h-4 w-4" />
-            </button>
+        <div className="hidden min-w-0 max-w-[min(48%,20rem)] shrink-0 items-center justify-end gap-1.5 overflow-hidden sm:flex">
+          {taskTags.length > 0 ? (
+            <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+              {taskTags.slice(0, 3).map((tg) => (
+                <TagBadge
+                  key={tg.id}
+                  tag={tg}
+                  tagIndex={tags.findIndex((x) => x.id === tg.id)}
+                />
+              ))}
+            </div>
           ) : null}
-          <button
-            type="button"
-            className="md-focus-ring flex h-9 w-9 items-center justify-center rounded-[10px] text-md-on-surface-variant hover:text-red-400"
-            title="删除"
-            aria-label="删除任务"
-            onClick={() => useAppStore.getState().deleteTask(task.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {tailDate ? (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 tabular-nums md-type-label-m text-md-on-surface-variant"
+              title={folderTitle}
+            >
+              <FolderIcon className="h-3 w-3 shrink-0 opacity-60" />
+              {tailDate}
+            </span>
+          ) : null}
         </div>
       </Root>
     );
@@ -708,43 +707,6 @@ function ListTaskRowInner({
             {task.result}
           </p>
         ) : null}
-      </div>
-      <div className="list-row-hover-actions flex shrink-0 flex-col gap-0.5 self-start sm:flex-row">
-        <button
-          type="button"
-          className="md-corner-sm p-2 text-md-on-surface-variant md-state-hover-subtle hover:text-md-primary md-focus-ring"
-          title="编辑标题"
-          onClick={() => {
-            skipNextTitleBlurSave.current = false;
-            onStartEditTitle(task.id, task.title);
-          }}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        {!task.completedAt &&
-        !task.abandonedAt &&
-        task.folderId !== RECENT_DELETED_FOLDER_KEY ? (
-          <button
-            type="button"
-            className="md-corner-sm p-2 text-amber-500/90 md-state-hover-subtle hover:text-amber-400 md-focus-ring"
-            title="放弃任务"
-            onClick={() => onRequestAbandon(task)}
-          >
-            <Ban className="h-4 w-4" />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="md-corner-sm p-2 text-md-on-surface-variant md-state-hover-subtle hover:text-red-400 md-focus-ring"
-          title={
-            task.folderId === RECENT_DELETED_FOLDER_KEY
-              ? "永久删除"
-              : "删除"
-          }
-          onClick={() => useAppStore.getState().deleteTask(task.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
       </div>
     </Root>
   );

@@ -19,10 +19,13 @@ import type {
 import {
   ARCHIVE_FOLDER_KEY,
   INBOX_FOLDER_KEY,
+  NEXT_7_DAYS_NAV_KEY,
   RECENT_DELETED_FOLDER_KEY,
+  TODAY_NAV_KEY,
   allCanvasFolderLaneKeys,
   taskFolderKey,
 } from "./types";
+import { filterTasksForNav } from "./list-nav-filter";
 
 export const GROUP_PREFIX = "grp-";
 export const FOLDER_PREFIX = "fld-";
@@ -60,15 +63,7 @@ function folderColor(folderKey: string, folders: Folder[]): string | undefined {
 }
 
 function filterTasksByNav(tasks: Task[], navFolderId: NavFolderId): Task[] {
-  if (navFolderId === "all")
-    return tasks.filter((t) => t.folderId !== RECENT_DELETED_FOLDER_KEY);
-  if (navFolderId === INBOX_FOLDER_KEY)
-    return tasks.filter((t) => !t.folderId);
-  if (navFolderId === ARCHIVE_FOLDER_KEY)
-    return tasks.filter((t) => t.folderId === ARCHIVE_FOLDER_KEY);
-  if (navFolderId === RECENT_DELETED_FOLDER_KEY)
-    return tasks.filter((t) => t.folderId === RECENT_DELETED_FOLDER_KEY);
-  return tasks.filter((t) => t.folderId === navFolderId);
+  return filterTasksForNav(tasks, navFolderId);
 }
 
 /**
@@ -132,7 +127,11 @@ function visibleFolderKeys(
   folders: Folder[],
   navFolderId: NavFolderId,
 ): string[] {
-  if (navFolderId === "all") {
+  if (
+    navFolderId === "all" ||
+    navFolderId === TODAY_NAV_KEY ||
+    navFolderId === NEXT_7_DAYS_NAV_KEY
+  ) {
     return allCanvasFolderLaneKeys(folders);
   }
   return [navFolderId];

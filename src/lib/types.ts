@@ -1,5 +1,9 @@
-/** layout.folderRects 与导航中「收件箱」的统一键 */
+/** layout.folderRects 与导航中「收件箱 / 收集箱」的统一键 */
 export const INBOX_FOLDER_KEY = "__inbox__";
+/** 侧栏智能清单：今天（逾期 + 今日截止） */
+export const TODAY_NAV_KEY = "__nav_today__";
+/** 侧栏智能清单：最近 7 天（含今天） */
+export const NEXT_7_DAYS_NAV_KEY = "__nav_next_7_days__";
 /** 虚拟「归档」文件夹：结项任务可移入此栏（显式 folderId） */
 export const ARCHIVE_FOLDER_KEY = "__archive__";
 /** 虚拟「最近删除」：删除的任务暂存于此，可恢复或永久删除 */

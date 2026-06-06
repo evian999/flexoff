@@ -12,11 +12,10 @@ import {
   ChevronRight,
   PanelLeftOpen,
 } from "lucide-react";
-import type { Task, TaskPriority } from "@/lib/types";
 import {
-  ARCHIVE_FOLDER_KEY,
-  INBOX_FOLDER_KEY,
   RECENT_DELETED_FOLDER_KEY,
+  type Task,
+  type TaskPriority,
 } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
 import { AbandonTaskDialog } from "@/components/AbandonTaskDialog";
@@ -36,7 +35,9 @@ import { findNextTaskFromEdges } from "@/lib/list-task-next";
 import {
   bucketIncompleteTasksByDue,
   sortBucketTasksNewFirst,
+  undatedIncompleteTasks,
 } from "@/lib/list-due-buckets";
+import { filterTasksForNav } from "@/lib/list-nav-filter";
 import { useListUiPrefs } from "@/hooks/useListUiPrefs";
 import { useScrollbarAutoHide } from "@/hooks/useScrollbarAutoHide";
 import { useAnnounce } from "@/components/a11y/LiveRegionProvider";
@@ -123,18 +124,7 @@ export function ListMode() {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
   const filtered = useMemo(() => {
-    let list = [...tasks];
-    if (navFolderId === "all") {
-      list = list.filter((t) => t.folderId !== RECENT_DELETED_FOLDER_KEY);
-    } else if (navFolderId === INBOX_FOLDER_KEY) {
-      list = list.filter((t) => !t.folderId);
-    } else if (navFolderId === ARCHIVE_FOLDER_KEY) {
-      list = list.filter((t) => t.folderId === ARCHIVE_FOLDER_KEY);
-    } else if (navFolderId === RECENT_DELETED_FOLDER_KEY) {
-      list = list.filter((t) => t.folderId === RECENT_DELETED_FOLDER_KEY);
-    } else {
-      list = list.filter((t) => t.folderId === navFolderId);
-    }
+    let list = filterTasksForNav(tasks, navFolderId);
     if (navTagId) {
       list = list.filter((t) => t.tagIds?.includes(navTagId));
     }
@@ -173,6 +163,11 @@ export function ListMode() {
       tasks: sortBucketTasksNewFirst(b.tasks),
     }));
   }, [incompleteTasks]);
+
+  const undatedTasks = useMemo(
+    () => sortBucketTasksNewFirst(undatedIncompleteTasks(incompleteTasks)),
+    [incompleteTasks],
+  );
 
   const submit = () => {
     if (inTrashNav) return;
@@ -385,6 +380,19 @@ export function ListMode() {
                         </section>
                       ),
                     )}
+                    {undatedTasks.length > 0 ? (
+                      <ul className="flex w-full flex-col gap-2">
+                        {undatedTasks.map((task, i) => {
+                          const link = nextFromEdges(task);
+                          const offset = incompleteBuckets.reduce(
+                            (s, b) => s + b.tasks.length,
+                            0,
+                          );
+                          const serial = offset + i + 1;
+                          return renderTaskRow(task, serial, link, "li");
+                        })}
+                      </ul>
+                    ) : null}
                   </div>
                 ) : null}
                 {completedTasks.length > 0 ? (

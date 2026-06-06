@@ -55,7 +55,9 @@ import {
 import {
   ARCHIVE_FOLDER_KEY,
   INBOX_FOLDER_KEY,
+  NEXT_7_DAYS_NAV_KEY,
   RECENT_DELETED_FOLDER_KEY,
+  TODAY_NAV_KEY,
   type NavFolderId,
   taskFolderKey,
 } from "@/lib/types";
@@ -522,7 +524,9 @@ function CanvasInner() {
             aria-label="按文件夹筛选画布任务"
           >
             <option value="all">全部文件夹</option>
-            <option value={INBOX_FOLDER_KEY}>收件箱</option>
+            <option value={TODAY_NAV_KEY}>今天</option>
+            <option value={NEXT_7_DAYS_NAV_KEY}>最近7天</option>
+            <option value={INBOX_FOLDER_KEY}>收集箱</option>
             {folders.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}

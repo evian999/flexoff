@@ -6,16 +6,16 @@ export type DueBucket = {
   tasks: Task[];
 };
 
-function startOfLocalDay(d: Date): Date {
+export function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-function endOfLocalDay(d: Date): Date {
+export function endOfLocalDay(d: Date): Date {
   const s = startOfLocalDay(d);
   return new Date(s.getTime() + 86400000 - 1);
 }
 
-function parseDue(task: Task): Date | null {
+export function parseDue(task: Task): Date | null {
   if (!task.dueAt?.trim()) return null;
   const t = new Date(task.dueAt);
   return Number.isNaN(t.getTime()) ? null : t;
@@ -35,12 +35,10 @@ export function bucketIncompleteTasksByDue(tasks: Task[]): DueBucket[] {
   const today: Task[] = [];
   const thisWeek: Task[] = [];
   const later: Task[] = [];
-  const noDue: Task[] = [];
 
   for (const t of tasks) {
     const due = parseDue(t);
     if (!due) {
-      noDue.push(t);
       continue;
     }
     if (due < todayStart) {
@@ -65,9 +63,32 @@ export function bucketIncompleteTasksByDue(tasks: Task[]): DueBucket[] {
   if (thisWeek.length)
     out.push({ key: "thisWeek", label: "七天内", tasks: thisWeek });
   if (later.length) out.push({ key: "later", label: "更远", tasks: later });
-  if (noDue.length)
-    out.push({ key: "noDue", label: "无截止日期", tasks: noDue });
   return out;
+}
+
+/** 无截止日期的未完成任务（不单独成段，列表末尾平铺展示） */
+export function undatedIncompleteTasks(tasks: Task[]): Task[] {
+  return tasks.filter((t) => !parseDue(t));
+}
+
+/** 列表行尾部：截止 / 完成 / 放弃时间 */
+export function formatListTaskTailDate(task: Task): string | null {
+  const raw = task.completedAt ?? task.abandonedAt ?? task.dueAt;
+  if (!raw?.trim()) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const now = new Date();
+  const todayStart = startOfLocalDay(now);
+  const todayEnd = endOfLocalDay(now);
+  const tomorrowEnd = new Date(todayStart.getTime() + 2 * 86400000 - 1);
+
+  if (d >= todayStart && d <= todayEnd) return "今天";
+  if (d > todayEnd && d <= tomorrowEnd) return "明天";
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  }
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** 各桶内仍按「新在上」排序 */

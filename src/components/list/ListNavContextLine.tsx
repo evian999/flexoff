@@ -1,12 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  ARCHIVE_FOLDER_KEY,
-  INBOX_FOLDER_KEY,
-  RECENT_DELETED_FOLDER_KEY,
-  type NavFolderId,
-} from "@/lib/types";
+import { navFolderDisplayName, isSmartListNav } from "@/lib/list-nav-filter";
+import type { NavFolderId } from "@/lib/types";
 import type { Folder, Tag } from "@/lib/types";
 
 type Props = {
@@ -28,13 +24,10 @@ export function ListNavContextLine({
   tags,
   sidebarCollapsed,
 }: Props) {
-  const folderLabel = useMemo(() => {
-    if (navFolderId === "all") return "全部文件夹";
-    if (navFolderId === INBOX_FOLDER_KEY) return "收件箱";
-    if (navFolderId === ARCHIVE_FOLDER_KEY) return "归档";
-    if (navFolderId === RECENT_DELETED_FOLDER_KEY) return "最近删除";
-    return folders.find((f) => f.id === navFolderId)?.name ?? "文件夹";
-  }, [navFolderId, folders]);
+  const folderLabel = useMemo(
+    () => navFolderDisplayName(navFolderId, folders),
+    [navFolderId, folders],
+  );
 
   const tagLabel = useMemo(() => {
     if (!navTagId) return null;
@@ -42,7 +35,11 @@ export function ListNavContextLine({
   }, [navTagId, tags]);
 
   const show =
-    sidebarCollapsed || Boolean(navTagId) || Boolean(navMention?.trim());
+    sidebarCollapsed ||
+    isSmartListNav(navFolderId) ||
+    navFolderId !== "all" ||
+    Boolean(navTagId) ||
+    Boolean(navMention?.trim());
 
   if (!show) return null;
 
