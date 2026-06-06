@@ -10,7 +10,7 @@ import type {
   Vec2,
 } from "@/lib/types";
 import { normalizeMentionList } from "@/lib/mentions";
-import { parseAppData } from "@/lib/validate";
+import { parseAppData, sanitizeAppDataForPersistence } from "@/lib/validate";
 import { getSupabaseAdmin } from "./admin";
 import { saveTaskHttpPrefsToSupabase } from "./task-http-prefs";
 
@@ -264,7 +264,11 @@ export async function saveAppDataToSupabase(
   const sb = getSupabaseAdmin();
   if (!sb) throw new Error("Supabase not configured");
 
-  const payload = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+  const sanitized = sanitizeAppDataForPersistence(data);
+  const payload = JSON.parse(JSON.stringify(sanitized)) as Record<
+    string,
+    unknown
+  >;
 
   const { error } = await sb.rpc("replace_user_app_data", {
     p_user_id: userId,

@@ -483,8 +483,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           throw new Error("未登录");
         }
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error((j as { error?: string }).error ?? res.statusText);
+          const j = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            message?: string;
+          };
+          const detail = j.message?.trim();
+          const base = j.error ?? res.statusText;
+          throw new Error(detail ? `${base}：${detail}` : base);
         }
         set({ saveError: null });
       } catch (e) {

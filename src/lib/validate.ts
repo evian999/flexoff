@@ -39,6 +39,80 @@ function parseTaskPriority(v: unknown): TaskPriority | undefined {
   return v;
 }
 
+function isValidTimestamptz(value: string): boolean {
+  return !Number.isNaN(Date.parse(value));
+}
+
+/** 写入 Supabase 前剔除会破坏外键的引用（孤儿 layout 坐标、无效 tag/edge 等） */
+export function sanitizeAppDataForPersistence(data: AppData): AppData {
+  const taskIds = new Set(data.tasks.map((t) => t.id));
+  const tagIds = new Set(data.tags.map((t) => t.id));
+  const groupIds = new Set(data.groups.map((g) => g.id));
+
+  const tasks = data.tasks.map((t) => {
+    const filteredTagIds = t.tagIds?.filter((id) => tagIds.has(id)) ?? [];
+    const dueAt =
+      t.dueAt && isValidTimestamptz(t.dueAt) ? t.dueAt : undefined;
+    const completedAt =
+      t.completedAt && isValidTimestamptz(t.completedAt)
+        ? t.completedAt
+        : undefined;
+    const abandonedAt =
+      t.abandonedAt && isValidTimestamptz(t.abandonedAt)
+        ? t.abandonedAt
+        : undefined;
+    const trashedAt =
+      t.trashedAt && isValidTimestamptz(t.trashedAt) ? t.trashedAt : undefined;
+    const createdAt =
+      t.createdAt && isValidTimestamptz(t.createdAt)
+        ? t.createdAt
+        : new Date().toISOString();
+    const { tagIds: _dropTags, ...rest } = t;
+    return {
+      ...rest,
+      createdAt,
+      ...(dueAt ? { dueAt } : {}),
+      ...(completedAt ? { completedAt } : {}),
+      ...(abandonedAt ? { abandonedAt } : {}),
+      ...(trashedAt ? { trashedAt } : {}),
+      ...(filteredTagIds.length ? { tagIds: filteredTagIds } : {}),
+    };
+  });
+
+  const edges = data.edges.filter(
+    (e) => taskIds.has(e.source) && taskIds.has(e.target),
+  );
+
+  const groups = data.groups
+    .map((g) => ({
+      ...g,
+      taskIds: g.taskIds.filter((id) => taskIds.has(id)),
+    }))
+    .filter((g) => g.taskIds.length > 0);
+
+  const positions: LayoutState["positions"] = {};
+  for (const [k, v] of Object.entries(data.layout.positions)) {
+    if (taskIds.has(k)) positions[k] = v;
+  }
+
+  const groupRects: LayoutState["groupRects"] = {};
+  for (const [k, v] of Object.entries(data.layout.groupRects)) {
+    if (groupIds.has(k)) groupRects[k] = v;
+  }
+
+  return {
+    ...data,
+    tasks,
+    edges,
+    groups,
+    layout: {
+      ...data.layout,
+      positions,
+      groupRects,
+    },
+  };
+}
+
 function ensureFolderRects(
   raw: Record<string, Rect> | undefined,
   folders: Folder[],
@@ -224,5 +298,5 @@ export function parseAppData(raw: unknown): AppData {
     }
   }
 
-  return out;
+  return sanitizeAppDataForPersistence(out);
 }

@@ -80,8 +80,23 @@ export async function PATCH(request: Request) {
         await saveAppDataToSupabase(userId, data);
       } catch (e) {
         console.error("[api/data] Supabase save failed:", e);
+        const msg = e instanceof Error ? e.message : String(e);
+        const code =
+          e && typeof e === "object" && "code" in e
+            ? String((e as { code: unknown }).code)
+            : undefined;
+        const details =
+          e && typeof e === "object" && "details" in e
+            ? String((e as { details: unknown }).details)
+            : undefined;
         return NextResponse.json(
-          { ok: false, error: "持久化失败（请检查 Supabase 与数据库函数）" },
+          {
+            ok: false,
+            error: "持久化失败（请检查 Supabase 与数据库函数）",
+            message: msg,
+            ...(code ? { code } : {}),
+            ...(details && details !== "null" ? { details } : {}),
+          },
           { status: 503 },
         );
       }
