@@ -1,0 +1,208 @@
+-- Flex-Off：一键修复「完成任务 / 保存」503
+-- 在 Supabase Dashboard → SQL Editor 中粘贴并 Run 全文（可重复执行）
+--
+-- 适用：PATCH /api/data 返回 503、permission denied、外键错误、列不存在等
+
+-- ── 补齐 tasks 扩展列（004 / 005）────────────────────────────────────────
+
+alter table public.tasks
+  add column if not exists due_at timestamptz,
+  add column if not exists progress_current integer,
+  add column if not exists progress_total integer,
+  add column if not exists abandoned_at timestamptz,
+  add column if not exists abandon_reason text,
+  add column if not exists spaced_repetition_enabled boolean default false;
+
+alter table public.tasks
+  add column if not exists mentions jsonb default '[]'::jsonb;
+
+alter table public.tasks drop constraint if exists tasks_folder_id_fkey;
+
+-- ── user_preferences RLS（006）────────────────────────────────────────────
+
+alter table public.user_preferences enable row level security;
+
+revoke all on table public.user_preferences from public;
+revoke all on table public.user_preferences from anon;
+revoke all on table public.user_preferences from authenticated;
+
+grant all on table public.user_preferences to service_role;
+
+-- ── replace_user_app_data：外键安全版（007）───────────────────────────────
+
+create or replace function public.replace_user_app_data (p_user_id text, p_data jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.task_edges where user_id = p_user_id;
+  delete from public.layout_task_positions where user_id = p_user_id;
+  delete from public.layout_group_rects where user_id = p_user_id;
+  delete from public.layout_folder_rects where user_id = p_user_id;
+  delete from public.task_group_tasks
+    where group_id in (select id from public.task_groups where user_id = p_user_id);
+  delete from public.task_groups where user_id = p_user_id;
+  delete from public.task_tags
+    where task_id in (select id from public.tasks where user_id = p_user_id);
+  delete from public.tasks where user_id = p_user_id;
+  delete from public.folders where user_id = p_user_id;
+  delete from public.tags where user_id = p_user_id;
+
+  insert into public.folders (id, user_id, name, color)
+  select
+    e->>'id',
+    p_user_id,
+    e->>'name',
+    nullif(trim(e->>'color'), '')
+  from jsonb_array_elements(coalesce(p_data->'folders', '[]'::jsonb)) as e;
+
+  insert into public.tags (id, user_id, name, color)
+  select
+    e->>'id',
+    p_user_id,
+    e->>'name',
+    nullif(trim(e->>'color'), '')
+  from jsonb_array_elements(coalesce(p_data->'tags', '[]'::jsonb)) as e;
+
+  insert into public.tasks (
+    id,
+    user_id,
+    title,
+    created_at,
+    completed_at,
+    result,
+    folder_id,
+    priority,
+    due_at,
+    progress_current,
+    progress_total,
+    abandoned_at,
+    abandon_reason,
+    spaced_repetition_enabled,
+    mentions
+  )
+  select
+    e->>'id',
+    p_user_id,
+    e->>'title',
+    coalesce((e->>'createdAt')::timestamptz, now()),
+    nullif(trim(e->>'completedAt'), '')::timestamptz,
+    nullif(trim(e->>'result'), ''),
+    nullif(trim(e->>'folderId'), ''),
+    nullif(trim(e->>'priority'), ''),
+    nullif(trim(e->>'dueAt'), '')::timestamptz,
+    case
+      when nullif(trim(e->>'progressCurrent'), '') is null then null
+      else (e->>'progressCurrent')::integer
+    end,
+    case
+      when nullif(trim(e->>'progressTotal'), '') is null then null
+      else (e->>'progressTotal')::integer
+    end,
+    nullif(trim(e->>'abandonedAt'), '')::timestamptz,
+    nullif(trim(e->>'abandonReason'), ''),
+    case
+      when e->'spacedRepetitionEnabled' = 'true'::jsonb then true
+      when e->>'spacedRepetitionEnabled' in ('true', 't', '1') then true
+      else false
+    end,
+    coalesce(e->'mentions', '[]'::jsonb)
+  from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as e;
+
+  insert into public.task_tags (task_id, tag_id)
+  select
+    e->>'id',
+    x.v
+  from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as e
+  cross join lateral jsonb_array_elements_text(coalesce(e->'tagIds', '[]'::jsonb)) as x(v)
+  where x.v in (
+    select t->>'id'
+    from jsonb_array_elements(coalesce(p_data->'tags', '[]'::jsonb)) as t
+  );
+
+  insert into public.task_groups (id, user_id, name)
+  select
+    e->>'id',
+    p_user_id,
+    e->>'name'
+  from jsonb_array_elements(coalesce(p_data->'groups', '[]'::jsonb)) as e;
+
+  insert into public.task_group_tasks (group_id, task_id, sort_order)
+  select
+    g.elem->>'id',
+    t.val,
+    (t.ord::int - 1)
+  from jsonb_array_elements(coalesce(p_data->'groups', '[]'::jsonb)) as g(elem)
+  cross join lateral jsonb_array_elements_text(coalesce(g.elem->'taskIds', '[]'::jsonb))
+    with ordinality as t(val, ord)
+  where t.val in (
+    select tk->>'id'
+    from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as tk
+  )
+  and g.elem->>'id' in (
+    select gr->>'id'
+    from jsonb_array_elements(coalesce(p_data->'groups', '[]'::jsonb)) as gr
+  );
+
+  insert into public.task_edges (id, user_id, source_task_id, target_task_id, label)
+  select
+    e->>'id',
+    p_user_id,
+    e->>'source',
+    e->>'target',
+    nullif(trim(e->>'label'), '')
+  from jsonb_array_elements(coalesce(p_data->'edges', '[]'::jsonb)) as e
+  where e->>'source' in (
+    select tk->>'id'
+    from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as tk
+  )
+  and e->>'target' in (
+    select tk->>'id'
+    from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as tk
+  );
+
+  insert into public.layout_task_positions (user_id, task_id, x, y)
+  select
+    p_user_id,
+    k,
+    (v->>'x')::double precision,
+    (v->>'y')::double precision
+  from jsonb_each(coalesce(p_data->'layout'->'positions', '{}'::jsonb)) as t(k, v)
+  where k in (
+    select tk->>'id'
+    from jsonb_array_elements(coalesce(p_data->'tasks', '[]'::jsonb)) as tk
+  );
+
+  insert into public.layout_group_rects (user_id, group_id, x, y, w, h)
+  select
+    p_user_id,
+    k,
+    (v->>'x')::double precision,
+    (v->>'y')::double precision,
+    (v->>'w')::double precision,
+    (v->>'h')::double precision
+  from jsonb_each(coalesce(p_data->'layout'->'groupRects', '{}'::jsonb)) as t(k, v)
+  where k in (
+    select gr->>'id'
+    from jsonb_array_elements(coalesce(p_data->'groups', '[]'::jsonb)) as gr
+  );
+
+  insert into public.layout_folder_rects (user_id, folder_key, x, y, w, h)
+  select
+    p_user_id,
+    k,
+    (v->>'x')::double precision,
+    (v->>'y')::double precision,
+    (v->>'w')::double precision,
+    (v->>'h')::double precision
+  from jsonb_each(coalesce(p_data->'layout'->'folderRects', '{}'::jsonb)) as t(k, v);
+end;
+$$;
+
+revoke all on function public.replace_user_app_data (text, jsonb) from public;
+revoke all on function public.replace_user_app_data (text, jsonb) from anon;
+revoke all on function public.replace_user_app_data (text, jsonb) from authenticated;
+
+grant execute on function public.replace_user_app_data (text, jsonb) to service_role;
