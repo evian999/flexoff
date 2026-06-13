@@ -43,10 +43,12 @@ export async function GET() {
     });
   }
 
-  const checks: Record<string, unknown> = {
-    foldersSelect: null as { ok: boolean; message?: string; code?: string },
-    tasksMentionsColumn: null as { ok: boolean; message?: string; code?: string },
-    rpcReplace: null as { ok: boolean; message?: string; code?: string; hint?: string },
+  type CheckResult = { ok: boolean; message?: string; code?: string; hint?: string } | null;
+
+  const checks: Record<string, CheckResult> = {
+    foldersSelect: null,
+    tasksMentionsColumn: null,
+    rpcReplace: null,
   };
 
   const { error: folderErr } = await sb.from("folders").select("id").limit(1);
