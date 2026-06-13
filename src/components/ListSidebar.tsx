@@ -58,6 +58,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagEditName, setTagEditName] = useState("");
   const [tagEditColor, setTagEditColor] = useState("");
+  const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLElement>(null);
   useScrollbarAutoHide(scrollRef);
 
@@ -167,10 +168,11 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
   );
 
   return (
-    <aside
-      ref={scrollRef}
-      className="scrollbar-auto-hide flex h-full min-h-0 w-72 shrink-0 flex-col overflow-y-auto border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 backdrop-blur-sm sm:w-80"
-    >
+    <>
+      <aside
+        ref={scrollRef}
+        className="scrollbar-auto-hide flex h-full min-h-0 w-72 shrink-0 flex-col overflow-y-auto border-r border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 backdrop-blur-sm sm:w-80"
+      >
       <div className="border-b border-[var(--md-sys-color-outline)] p-3">
         <p className="md-type-label-s mb-2 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -284,7 +286,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-0.5">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-0.5 pr-2">
                   <button
                     type="button"
                     onClick={() => setNavFolderId(f.id)}
@@ -319,7 +321,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
                     type="button"
                     title="删除文件夹"
                     className="shrink-0 md-corner-sm p-1.5 text-md-on-surface-variant opacity-0 md-state-hover-subtle hover:text-red-400 group-hover:opacity-100 md-focus-ring"
-                    onClick={() => deleteFolder(f.id)}
+                    onClick={() => setConfirmDeleteFolderId(f.id)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -452,7 +454,7 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-1">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_2.25rem] items-center gap-x-1 pr-2">
                   <button
                     type="button"
                     onClick={() =>
@@ -586,5 +588,43 @@ export function ListSidebar({ onRequestCollapse }: ListSidebarProps) {
         </div>
       </div>
     </aside>
+      {confirmDeleteFolderId ? (
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setConfirmDeleteFolderId(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="md-type-body-m mb-1 font-semibold text-md-on-surface">
+              确认删除文件夹
+            </p>
+            <p className="md-type-body-s mb-6 text-md-on-surface-variant">
+              文件夹将被删除，其中的任务将移回收件箱。此操作不可撤销。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="md-btn-outlined md-focus-ring px-4 py-2 md-type-body-s"
+                onClick={() => setConfirmDeleteFolderId(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="md-btn-filled md-focus-ring px-4 py-2 md-type-body-s bg-red-600 text-white hover:bg-red-700"
+                onClick={() => {
+                  deleteFolder(confirmDeleteFolderId);
+                  setConfirmDeleteFolderId(null);
+                }}
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

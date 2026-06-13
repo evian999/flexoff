@@ -199,7 +199,7 @@ function renderInline(text: string): ReactNode[] {
       parts.push(
         <mark
           key={k++}
-          className="rounded-sm bg-amber-400/30 px-0.5 text-md-on-surface"
+          className="rounded-sm bg-yellow-200/60 px-0.5 text-md-on-surface"
         >
           {token.slice(2, -2)}
         </mark>,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { NextStepInput, Task } from "@/lib/types";
 import { RECENT_DELETED_FOLDER_KEY, taskFolderKey } from "@/lib/types";
 import { useAppStore } from "@/lib/store";
@@ -35,6 +35,17 @@ export function CompleteTaskDialog({ task, onClose, onCompleted }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [task, onClose]);
+
+  const allMentions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of tasks) {
+      for (const m of t.mentions ?? []) {
+        const key = m.toLowerCase();
+        if (!seen.has(key)) seen.set(key, m);
+      }
+    }
+    return Array.from(seen.values());
+  }, [tasks]);
 
   if (!task) return null;
 
@@ -114,9 +125,10 @@ export function CompleteTaskDialog({ task, onClose, onCompleted }: Props) {
                 <TagHashTextInput
                   suggestAbove
                   className="md-field md-focus-ring min-w-0 flex-1 px-2 py-1.5 md-type-body-m"
-                  placeholder="描述下一步…（# 选标签）"
+                  placeholder="描述下一步…（# 选标签，@ 提及）"
                   value={row.text}
                   tags={tags}
+                  mentions={allMentions}
                   onChange={(v) => {
                     setSteps((prev) =>
                       prev.map((p, j) => (j === i ? { ...p, text: v } : p)),

@@ -134,6 +134,7 @@ type AppState = AppData & {
       folderId?: string | null;
       tagIds?: string[];
       priority?: TaskPriority;
+      dueAt?: string;
     },
   ) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -536,6 +537,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       ...(folderId ? { folderId } : {}),
       ...(tagIds.length ? { tagIds } : {}),
+      ...(opts?.dueAt ? { dueAt: opts.dueAt } : {}),
       ...(opts?.priority ? { priority: opts.priority } : {}),
       ...(mentions ? { mentions } : {}),
     };

@@ -21,7 +21,9 @@ import {
   List,
   ListChecks,
   ListOrdered,
+  Maximize2,
   MoreHorizontal,
+  PanelRightClose,
   Paperclip,
   Plus,
   Quote,
@@ -46,6 +48,7 @@ import {
 } from "@/lib/task-priority-ui";
 import { useScrollbarAutoHide } from "@/hooks/useScrollbarAutoHide";
 import { TaskNotesEditor } from "@/components/list/TaskNotesEditor";
+import { ListTaskDetailFullscreen } from "@/components/list/ListTaskDetailFullscreen";
 import {
   getCaretTextOffset,
   insertLinkAtSelection,
@@ -82,6 +85,7 @@ type Props = {
   onRequestAbandon: (t: Task) => void;
   jumpToTask: (t: Task) => void;
   onClose: () => void;
+  onCollapse?: () => void;
 };
 
 function formatDueMeta(task: Task) {
@@ -139,6 +143,7 @@ export function ListTaskDetailPanel({
   onRequestAbandon,
   jumpToTask,
   onClose,
+  onCollapse,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const dueInputRef = useRef<HTMLInputElement>(null);
@@ -152,10 +157,16 @@ export function ListTaskDetailPanel({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionDraft, setMentionDraft] = useState("");
   const [formatToolbarOpen, setFormatToolbarOpen] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [moreBox, setMoreBox] = useState<{ top: number; left: number } | null>(
     null,
   );
   const [priorityBox, setPriorityBox] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [nextTaskOpen, setNextTaskOpen] = useState(false);
+  const [nextTaskBox, setNextTaskBox] = useState<{
     top: number;
     left: number;
   } | null>(null);
@@ -315,10 +326,11 @@ export function ListTaskDetailPanel({
   const priFlag = pri ? PRIORITY_FLAG[pri] : null;
 
   return (
-    <aside
-      className="flex h-full min-h-0 w-[400px] shrink-0 flex-col border-l border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface)]"
-      aria-label="任务详情"
-    >
+    <>
+      <aside
+        className="flex h-full min-h-0 w-[400px] shrink-0 flex-col border-l border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface)]"
+        aria-label="任务详情"
+      >
       {/* 顶栏：完成框 · 截止日期 · 优先级旗标 */}
       <div className="flex shrink-0 items-center gap-3 border-b border-[var(--md-sys-color-outline)]/70 px-4 py-3">
         <input
@@ -364,8 +376,9 @@ export function ListTaskDetailPanel({
               className="inline-flex items-center gap-1.5 md-type-body-s text-md-primary md-focus-ring rounded-sm"
               onClick={() => {
                 useAppStore.getState().updateTask(task.id, {
-                  dueAt: new Date(Date.now() + 86_400_000).toISOString(),
+                  dueAt: new Date().toISOString(),
                 });
+                setTimeout(() => dueInputRef.current?.showPicker?.(), 0);
               }}
             >
               <Calendar className="h-4 w-4" />
@@ -412,6 +425,26 @@ export function ListTaskDetailPanel({
             strokeWidth={2}
           />
         </button>
+        {onCollapse ? (
+          <button
+            type="button"
+            title="收起详情"
+            aria-label="收起详情"
+            className="md-focus-ring shrink-0 p-1 text-md-on-surface-variant md-state-hover-subtle"
+            onClick={onCollapse}
+          >
+            <PanelRightClose className="h-4 w-4" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          title="全屏编辑"
+          aria-label="全屏编辑"
+          className="md-focus-ring shrink-0 p-1 text-md-on-surface-variant md-state-hover-subtle"
+          onClick={() => setFullscreenOpen(true)}
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
       </div>
 
       {/* 标题 */}
@@ -419,7 +452,7 @@ export function ListTaskDetailPanel({
         <div className="min-w-0">
           {isEditingTitle ? (
             <TagHashTextInput
-              className="md-field md-focus-ring w-full border-0 bg-transparent px-0 py-0 text-xl font-semibold leading-snug text-md-on-surface outline-none"
+              className="w-full border-0 bg-transparent px-0 py-0 text-xl font-semibold leading-snug text-md-on-surface outline-none focus:shadow-[inset_0_-2px_0_0_var(--md-sys-color-primary)]"
               placeholder="任务标题…"
               value={titleDraft}
               onChange={onTitleDraftChange}
@@ -602,7 +635,6 @@ export function ListTaskDetailPanel({
           </FormatBtn>
           <FormatBtn
             title="高亮"
-            active
             onClick={() => applyNotesWrap("==", "==", "高亮")}
           >
             <span className="text-sm font-serif font-bold leading-none">A</span>
@@ -829,6 +861,27 @@ export function ListTaskDetailPanel({
                   </button>
                 </li>
               ) : null}
+              {!done && !inTrash ? (
+                <li>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left md-type-body-s md-state-hover md-focus-ring"
+                    onClick={() => {
+                      const r = (
+                        document.querySelector("[data-detail-menu]") as HTMLElement
+                      )?.getBoundingClientRect();
+                      setNextTaskBox({
+                        top: r ? r.top - 4 : 200,
+                        left: r ? Math.max(8, r.right - 220) : 200,
+                      });
+                      setNextTaskOpen(true);
+                      setMoreOpen(false);
+                    }}
+                  >
+                    设置下一个任务
+                  </button>
+                </li>
+              ) : null}
               <li>
                 <button
                   type="button"
@@ -858,7 +911,145 @@ export function ListTaskDetailPanel({
             document.body,
           )
         : null}
+
+      {nextTaskOpen && nextTaskBox && typeof document !== "undefined" ? (
+        <SetNextTaskPortal
+          task={task}
+          tasks={[...incompleteTasks, ...completedTasks]}
+          box={nextTaskBox}
+          onClose={() => setNextTaskOpen(false)}
+          onJump={(t) => {
+            setNextTaskOpen(false);
+            jumpToTask(t);
+          }}
+        />
+      ) : null}
     </aside>
+      {fullscreenOpen ? (
+        <ListTaskDetailFullscreen
+          taskId={task.id}
+          title={task.title}
+          notesHtml={task.result ?? ""}
+          onClose={() => setFullscreenOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function SetNextTaskPortal({
+  task,
+  tasks,
+  box,
+  onClose,
+  onJump,
+}: {
+  task: Task;
+  tasks: Task[];
+  box: { top: number; left: number };
+  onClose: () => void;
+  onJump: (t: Task) => void;
+}) {
+  const [linkId, setLinkId] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const fk = taskFolderKey(task);
+  const sameFolder = tasks.filter(
+    (t) => t.id !== task.id && taskFolderKey(t) === fk,
+  );
+  const existingOuts = useAppStore.getState().edges.filter(
+    (e) => e.source === task.id,
+  );
+
+  const submit = () => {
+    const st = useAppStore.getState();
+    for (const e of existingOuts) st.removeEdge(e.id);
+    if (linkId) {
+      st.addEdge(task.id, linkId);
+    } else if (newTitle.trim()) {
+      const nt = st.addTask(newTitle.trim(), undefined, {
+        folderId: fk === INBOX_FOLDER_KEY ? undefined : fk,
+      });
+      st.addEdge(task.id, nt.id);
+      onJump(nt);
+    }
+    onClose();
+  };
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (t instanceof Element && t.closest("[data-next-task-popup]")) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      data-next-task-popup
+      className="fixed z-[10000] min-w-[14rem] border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] p-3 md-corner-md shadow-lg"
+      style={{
+        top: box.top,
+        left: box.left,
+        transform: "translateY(-100%)",
+      }}
+    >
+      <p className="mb-2 md-type-label-m text-md-on-surface-variant">
+        设置下一个任务
+      </p>
+      <label className="mb-1 block md-type-label-s text-md-on-surface-variant">
+        关联已有任务
+      </label>
+      <select
+        className="mb-2 w-full rounded border border-[var(--md-sys-color-outline)] bg-transparent px-2 py-1 md-type-body-s md-focus-ring"
+        value={linkId}
+        onChange={(e) => {
+          setLinkId(e.target.value);
+          if (e.target.value) setNewTitle("");
+        }}
+      >
+        <option value="">（可选）选择已有任务</option>
+        {sameFolder.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.title}
+          </option>
+        ))}
+      </select>
+      <label className="mb-1 block md-type-label-s text-md-on-surface-variant">
+        或新建任务
+      </label>
+      <input
+        className="mb-3 w-full rounded border border-[var(--md-sys-color-outline)] bg-transparent px-2 py-1 md-type-body-s md-focus-ring"
+        placeholder="输入新任务标题…"
+        value={newTitle}
+        onChange={(e) => {
+          setNewTitle(e.target.value);
+          if (e.target.value) setLinkId("");
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+      />
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          className="md-btn-outlined md-focus-ring px-3 py-1 text-xs"
+          onClick={onClose}
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          className="md-btn-filled md-focus-ring px-3 py-1 text-xs"
+          disabled={!linkId && !newTitle.trim()}
+          onClick={submit}
+        >
+          确定
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

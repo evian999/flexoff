@@ -226,6 +226,25 @@ export function wrapSelectionWithTag(
   const range = sel.getRangeAt(0);
   if (!root.contains(range.commonAncestorContainer)) return root.innerHTML;
 
+  const tagName = tag.toUpperCase();
+  let ancestor: Node | null = range.commonAncestorContainer;
+  while (ancestor && ancestor !== root) {
+    if (
+      ancestor instanceof HTMLElement &&
+      ancestor.tagName === tagName
+    ) {
+      const parent = ancestor.parentNode;
+      if (!parent) break;
+      while (ancestor.firstChild) {
+        parent.insertBefore(ancestor.firstChild, ancestor);
+      }
+      parent.removeChild(ancestor);
+      parent.normalize();
+      return root.innerHTML;
+    }
+    ancestor = ancestor.parentNode;
+  }
+
   const selected = range.toString() || placeholder;
   range.deleteContents();
 

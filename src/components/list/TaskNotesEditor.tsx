@@ -152,7 +152,7 @@ export function TaskNotesEditor({
         aria-multiline
         aria-label="任务备注"
         data-placeholder={PLACEHOLDER}
-        className="min-h-[12rem] w-full py-1 md-type-body-m leading-relaxed text-md-on-surface outline-none [&_a]:text-md-primary [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-md-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-md-on-surface-variant [&_code]:rounded [&_code]:bg-[var(--md-sys-color-surface-container-highest)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_mark]:rounded-sm [&_mark]:bg-amber-400/30 [&_mark]:px-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
+        className="min-h-[12rem] w-full py-1 md-type-body-m leading-relaxed text-md-on-surface outline-none [&_a]:text-md-primary [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-md-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-md-on-surface-variant [&_code]:rounded [&_code]:bg-[var(--md-sys-color-surface-container-highest)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.9em] [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:text-lg [&_h2]:font-semibold [&_mark]:rounded-sm [&_mark]:bg-yellow-200/60 [&_mark]:px-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5"
         onInput={handleInput}
         onBlur={onBlur}
         onKeyDown={handleKeyDown}

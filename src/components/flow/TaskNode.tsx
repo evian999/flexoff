@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { TagBadge } from "@/components/TagBadge";
 import { priorityCheckboxBorder } from "@/lib/task-priority-ui";
+import { notesHtmlToPlainText } from "@/lib/task-notes-format";
 
 export type TaskNodeData = { task: Task };
 
@@ -72,11 +73,11 @@ export function TaskNode({ data, selected }: NodeProps) {
       style={{ boxShadow: selected ? undefined : "var(--md-sys-elevation-shadow-1)" }}
     >
       <Handle
-        type="target"
-        position={Position.Left}
-        className="!z-20 !h-2.5 !w-2.5 !border !border-md-primary !bg-md-surface"
-      />
-      <div className="flex items-start gap-2">
+          type="target"
+          position={Position.Left}
+          className="!z-20 !h-2.5 !w-2.5 !border !border-md-primary !bg-md-surface"
+        />
+        <div className="flex items-start gap-2">
         <button
           type="button"
           className={`nodrag nopan mt-0.5 flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-2 transition-colors md-focus-ring ${
@@ -176,7 +177,9 @@ export function TaskNode({ data, selected }: NodeProps) {
             </p>
           ) : null}
           {task.result ? (
-            <p className="mt-1 line-clamp-2 md-type-body-s">{task.result}</p>
+            <p className="mt-1 line-clamp-2 md-type-body-s">
+              {notesHtmlToPlainText(task.result)}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col gap-0.5">

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { LayoutGrid, List, LogOut, Search, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppStore } from "@/lib/store";
-import { useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /** 最左窄轨：模式 / 主题 / 设置 / 退出（对标滴答左侧图标列 + 品牌渐变条） */
 export function AppIconRail() {
@@ -13,6 +14,61 @@ export function AppIconRail() {
   const listSearchOpen = useAppStore((s) => s.listSearchOpen);
   const setListSearchOpen = useAppStore((s) => s.setListSearchOpen);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [username, setUsername] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const avatarRef = useRef<HTMLButtonElement>(null);
+
+  const updateMenuPos = useCallback(() => {
+    const el = avatarRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setMenuPos({ top: r.top - 8, left: r.left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    updateMenuPos();
+    window.addEventListener("resize", updateMenuPos);
+    window.addEventListener("scroll", updateMenuPos, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPos);
+      window.removeEventListener("scroll", updateMenuPos, true);
+    };
+  }, [menuOpen, updateMenuPos]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data: { username?: string }) => {
+        if (data.username) setUsername(data.username);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (
+        avatarRef.current?.contains(e.target as Node) ||
+        (e.target as Element)?.closest("[data-avatar-menu]")
+      ) {
+        return;
+      }
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  const initial = username ? username.charAt(0).toUpperCase() : "";
 
   async function logout() {
     setLogoutLoading(true);
@@ -89,16 +145,50 @@ export function AppIconRail() {
         <Settings className="h-5 w-5" />
       </Link>
       <div className="flex-1" aria-hidden />
-      <button
-        type="button"
-        disabled={logoutLoading}
-        title="退出登录"
-        aria-label="退出登录"
-        onClick={() => void logout()}
-        className="md-focus-ring relative z-[1] flex h-11 w-11 items-center justify-center rounded-[10px] text-md-on-surface-variant hover:bg-red-500/15 hover:text-red-400 disabled:opacity-50"
-      >
-        <LogOut className="h-5 w-5" />
-      </button>
+      <div className="relative">
+        <button
+          ref={avatarRef}
+          type="button"
+          title={username || "用户菜单"}
+          aria-label={username ? `当前用户 ${username}` : "用户菜单"}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((o) => !o)}
+          className="md-focus-ring flex h-10 w-10 items-center justify-center rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] md-type-body-m font-semibold hover:opacity-90 transition-opacity"
+        >
+          {initial}
+        </button>
+      </div>
+      {menuOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              data-avatar-menu
+              className="fixed z-[10001] w-44 border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
+              style={{
+                top: menuPos.top,
+                left: menuPos.left,
+                transform: "translateY(-100%)",
+              }}
+            >
+              <div className="px-3 py-2 md-type-body-s text-md-on-surface-variant border-b border-[var(--md-sys-color-outline)]/40">
+                {username}
+              </div>
+              <button
+                type="button"
+                disabled={logoutLoading}
+                className="flex w-full items-center gap-2 px-3 py-2 md-type-body-s text-red-400 hover:bg-red-500/10 md-focus-ring"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void logout();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                退出登录
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </aside>
   );
 }

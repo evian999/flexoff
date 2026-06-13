@@ -107,6 +107,7 @@ function ListTaskRowInner({
   listElement = "li",
 }: ListTaskRowProps) {
   const skipNextTitleBlurSave = useRef(false);
+  const duePickerRef = useRef<HTMLInputElement>(null);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionDraft, setMentionDraft] = useState("");
@@ -337,17 +338,26 @@ function ListTaskRowInner({
               />
             </label>
           ) : !task.completedAt && !task.abandonedAt ? (
-            <button
-              type="button"
-              className="text-md-primary underline-offset-2 hover:underline md-focus-ring rounded-sm"
-              onClick={() =>
-                useAppStore.getState().updateTask(task.id, {
-                  dueAt: new Date(Date.now() + 86400000).toISOString(),
-                })
-              }
-            >
-              + 截止时间
-            </button>
+            <>
+              <button
+                type="button"
+                className="text-md-primary underline-offset-2 hover:underline md-focus-ring rounded-sm"
+                onClick={() => {
+                  useAppStore.getState().updateTask(task.id, {
+                    dueAt: new Date().toISOString(),
+                  });
+                  requestAnimationFrame(() => duePickerRef.current?.showPicker());
+                }}
+              >
+                + 截止时间
+              </button>
+              <input
+                ref={duePickerRef}
+                type="datetime-local"
+                className="hidden"
+                tabIndex={-1}
+              />
+            </>
           ) : null}
         </div>
         {!task.completedAt && !task.abandonedAt ? (

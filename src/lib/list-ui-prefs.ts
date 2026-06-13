@@ -5,10 +5,12 @@ export type ListDensity = "comfortable" | "compact";
 
 export type ListUiPrefs = {
   sidebarCollapsed: boolean;
+  detailPanelCollapsed: boolean;
 };
 
 export const defaultListUiPrefs: ListUiPrefs = {
   sidebarCollapsed: false,
+  detailPanelCollapsed: false,
 };
 
 export function readListUiPrefs(): ListUiPrefs {
@@ -20,6 +22,7 @@ export function readListUiPrefs(): ListUiPrefs {
     const p = JSON.parse(raw) as Partial<ListUiPrefs>;
     return {
       sidebarCollapsed: Boolean(p.sidebarCollapsed),
+      detailPanelCollapsed: Boolean(p.detailPanelCollapsed),
     };
   } catch {
     return { ...defaultListUiPrefs };

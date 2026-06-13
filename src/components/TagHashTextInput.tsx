@@ -25,35 +25,38 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   tags: Tag[];
+  /** 已知提及名列表，用于 @ 建议 */
+  mentions?: string[];
   placeholder?: string;
   className?: string;
   /** 为 true 时在输入框上方展开建议（用于对话框等） */
   suggestAbove?: boolean;
   /** 内部处理 # 菜单快捷键之后调用（例如回车提交外层表单） */
-  onInputKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  onInputKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   autoFocus?: boolean;
   /** 输入框失焦时调用（建议列表内 mousedown 会 preventDefault，一般不会误触发） */
   onInputBlur?: () => void;
 };
 
-export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
+export const TagHashTextInput = forwardRef<HTMLTextAreaElement, Props>(
   function TagHashTextInput(
     {
-      value,
-      onChange,
-      tags,
-      placeholder,
-      className,
-      suggestAbove,
-      onInputKeyDown,
-      autoFocus,
-      onInputBlur,
-    },
+value,
+    onChange,
+    tags,
+    mentions = [],
+    placeholder,
+    className,
+    suggestAbove,
+    onInputKeyDown,
+    autoFocus,
+    onInputBlur,
+  },
     ref,
   ) {
-    const innerRef = useRef<HTMLInputElement | null>(null);
+    const innerRef = useRef<HTMLTextAreaElement | null>(null);
     const wrapRef = useRef<HTMLDivElement | null>(null);
-    const setInputRef = (el: HTMLInputElement | null) => {
+    const setInputRef = (el: HTMLTextAreaElement | null) => {
       innerRef.current = el;
       assignRef(ref, el);
     };
@@ -66,17 +69,38 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
 
     const [hashMenuPos, setHashMenuPos] = useState({ top: 0, left: 0, width: 0 });
 
+    const [atMenu, setAtMenu] = useState<{
+      anchor: number;
+      query: string;
+      highlight: number;
+    } | null>(null);
+
+    const [atMenuPos, setAtMenuPos] = useState({ top: 0, left: 0, width: 0 });
+
     const suggestMatches = useMemo(() => {
       if (!hashMenu) return [];
       const q = hashMenu.query.toLowerCase();
       return tags.filter((t) => t.name.toLowerCase().startsWith(q));
     }, [tags, hashMenu]);
 
+    const atMatches = useMemo(() => {
+      if (!atMenu) return [];
+      const q = atMenu.query.toLowerCase();
+      return mentions.filter((m) => m.toLowerCase().startsWith(q));
+    }, [mentions, atMenu]);
+
     const updateHashMenuPos = useCallback(() => {
       const el = wrapRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       setHashMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }, []);
+
+    const updateAtMenuPos = useCallback(() => {
+      const el = wrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setAtMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
     }, []);
 
     useLayoutEffect(() => {
@@ -90,6 +114,18 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
         window.removeEventListener("scroll", onMove, true);
       };
     }, [hashMenu, suggestMatches.length, suggestAbove, updateHashMenuPos]);
+
+    useLayoutEffect(() => {
+      if (!atMenu || atMatches.length === 0 || suggestAbove) return;
+      updateAtMenuPos();
+      const onMove = () => updateAtMenuPos();
+      window.addEventListener("resize", onMove);
+      window.addEventListener("scroll", onMove, true);
+      return () => {
+        window.removeEventListener("resize", onMove);
+        window.removeEventListener("scroll", onMove, true);
+      };
+    }, [atMenu, atMatches.length, suggestAbove, updateAtMenuPos]);
 
     const syncHashMenu = (v: string, cursor: number) => {
       const before = v.slice(0, cursor);
@@ -128,6 +164,43 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
       });
     };
 
+    const syncAtMenu = (v: string, cursor: number) => {
+      const before = v.slice(0, cursor);
+      const m = before.match(/@([^@\s]*)$/);
+      if (!m) {
+        setAtMenu(null);
+        return;
+      }
+      const anchor = before.lastIndexOf("@");
+      const query = m[1] ?? "";
+      setAtMenu((prev) => ({
+        anchor,
+        query,
+        highlight:
+          prev && prev.anchor === anchor && prev.query === query
+            ? prev.highlight
+            : 0,
+      }));
+    };
+
+    const applyAtPick = (name: string) => {
+      const input = innerRef.current;
+      if (!input || !atMenu) return;
+      const cursor = input.selectionStart ?? value.length;
+      const { anchor } = atMenu;
+      const before = value.slice(0, anchor);
+      const after = value.slice(cursor);
+      const insert = `@${name} `;
+      const next = before + insert + after;
+      const pos = before.length + insert.length;
+      onChange(next);
+      setAtMenu(null);
+      queueMicrotask(() => {
+        input.focus();
+        input.setSelectionRange(pos, pos);
+      });
+    };
+
     const inputClassName = ["w-full min-w-0", className].filter(Boolean).join(" ");
 
     const suggestionList =
@@ -156,70 +229,147 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
 
     const showSuggestions = Boolean(hashMenu && suggestMatches.length > 0);
 
+    const atSuggestionList =
+      atMenu && atMatches.length > 0 ? (
+        <>
+          {atMatches.map((name, i) => (
+            <li key={name.toLowerCase()}>
+              <button
+                type="button"
+                className={`block w-full px-3 py-2 text-left md-type-body-m ${
+                  i === atMenu.highlight
+                    ? "bg-[var(--md-sys-color-primary-container)] text-md-on-primary-container"
+                    : "text-md-on-surface md-state-hover"
+                }`}
+                onMouseEnter={() =>
+                  setAtMenu((h) => (h ? { ...h, highlight: i } : h))
+                }
+                onClick={() => applyAtPick(name)}
+              >
+                @{name}
+              </button>
+            </li>
+          ))}
+        </>
+      ) : null;
+
+    const showAtSuggestions = Boolean(atMenu && atMatches.length > 0);
+
+    useLayoutEffect(() => {
+      const el = innerRef.current;
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    }, [value]);
+
     return (
       <div
         ref={wrapRef}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col justify-center"
       >
-        <input
-          ref={setInputRef}
-          className={inputClassName}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          value={value}
-          onChange={(e) => {
-            const v = e.target.value;
-            onChange(v);
-            const c = e.target.selectionStart ?? v.length;
-            syncHashMenu(v, c);
-          }}
-          onSelect={(e) => {
-            const t = e.target as HTMLInputElement;
-            syncHashMenu(t.value, t.selectionStart ?? t.value.length);
-          }}
-          onKeyDown={(e) => {
-            if (hashMenu && suggestMatches.length > 0) {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setHashMenu((h) =>
-                  h
-                    ? {
-                        ...h,
-                        highlight: Math.min(
-                          h.highlight + 1,
-                          suggestMatches.length - 1,
-                        ),
-                      }
-                    : h,
-                );
-                return;
+        <textarea
+            ref={setInputRef}
+            className={inputClassName}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            rows={1}
+            value={value}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange(v);
+              const c = e.target.selectionStart ?? v.length;
+              syncHashMenu(v, c);
+              syncAtMenu(v, c);
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
+            onSelect={(e) => {
+              const t = e.target as HTMLTextAreaElement;
+              syncHashMenu(t.value, t.selectionStart ?? t.value.length);
+              syncAtMenu(t.value, t.selectionStart ?? t.value.length);
+            }}
+            onKeyDown={(e) => {
+              if (atMenu && atMatches.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setAtMenu((h) =>
+                    h
+                      ? {
+                          ...h,
+                          highlight: Math.min(
+                            h.highlight + 1,
+                            atMatches.length - 1,
+                          ),
+                        }
+                      : h,
+                  );
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setAtMenu((h) =>
+                    h ? { ...h, highlight: Math.max(0, h.highlight - 1) } : h,
+                  );
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  const pick = atMatches[atMenu.highlight];
+                  if (pick) applyAtPick(pick);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setAtMenu(null);
+                  return;
+                }
               }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setHashMenu((h) =>
-                  h ? { ...h, highlight: Math.max(0, h.highlight - 1) } : h,
-                );
-                return;
+              if (hashMenu && suggestMatches.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setHashMenu((h) =>
+                    h
+                      ? {
+                          ...h,
+                          highlight: Math.min(
+                            h.highlight + 1,
+                            suggestMatches.length - 1,
+                          ),
+                        }
+                      : h,
+                  );
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setHashMenu((h) =>
+                    h ? { ...h, highlight: Math.max(0, h.highlight - 1) } : h,
+                  );
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  const pick = suggestMatches[hashMenu.highlight];
+                  if (pick) applyHashPick(pick.name);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setHashMenu(null);
+                  return;
+                }
               }
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                const pick = suggestMatches[hashMenu.highlight];
-                if (pick) applyHashPick(pick.name);
-                return;
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
+              onInputKeyDown?.(e);
+            }}
+            onBlur={() => {
+              onInputBlur?.();
+              window.setTimeout(() => {
                 setHashMenu(null);
-                return;
-              }
-            }
-            onInputKeyDown?.(e);
-          }}
-          onBlur={() => {
-            onInputBlur?.();
-            window.setTimeout(() => setHashMenu(null), 150);
-          }}
-        />
+                setAtMenu(null);
+              }, 150);
+            }}
+            style={{ resize: "none", overflow: "hidden" }}
+          />
         {showSuggestions && suggestAbove ? (
           <ul
             className="absolute bottom-full z-40 mb-1 max-h-48 w-full overflow-y-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
@@ -243,6 +393,33 @@ export const TagHashTextInput = forwardRef<HTMLInputElement, Props>(
               onMouseDown={(e) => e.preventDefault()}
             >
               {suggestionList}
+            </ul>,
+            document.body,
+          )
+        ) : null}
+        {showAtSuggestions && suggestAbove ? (
+          <ul
+            className="absolute bottom-full z-40 mb-1 max-h-48 w-full overflow-y-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            {atSuggestionList}
+          </ul>
+        ) : null}
+        {showAtSuggestions &&
+        !suggestAbove &&
+        typeof document !== "undefined" ? (
+          createPortal(
+            <ul
+              className="z-[9998] max-h-48 overflow-y-auto border border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)] py-1 md-corner-md shadow-xl"
+              style={{
+                position: "fixed",
+                top: atMenuPos.top,
+                left: atMenuPos.left,
+                width: atMenuPos.width,
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {atSuggestionList}
             </ul>,
             document.body,
           )

@@ -11,9 +11,11 @@ import {
   ChevronDown,
   ChevronRight,
   PanelLeftOpen,
+  PanelRightOpen,
 } from "lucide-react";
 import {
   RECENT_DELETED_FOLDER_KEY,
+  TODAY_NAV_KEY,
   type Task,
   type TaskPriority,
 } from "@/lib/types";
@@ -184,6 +186,7 @@ export function ListMode() {
     if (!title && tagIds.length === 0) return;
     addTask(title || "未命名任务", undefined, {
       tagIds: tagIds.length ? tagIds : undefined,
+      ...(navFolderId === TODAY_NAV_KEY ? { dueAt: new Date().toISOString() } : {}),
       ...(draftPriority !== undefined ? { priority: draftPriority } : {}),
     });
     setDraft("");
@@ -452,24 +455,39 @@ export function ListMode() {
           </div>
         </div>
         {selectedTask ? (
-          <ListTaskDetailPanel
-            task={selectedTask}
-            tags={tags}
-            folders={folders}
-            edges={edges}
-            incompleteTasks={incompleteTasks}
-            completedTasks={completedTasks}
-            isEditingTitle={editingTaskId === selectedTask.id}
-            titleDraft={editingTaskId === selectedTask.id ? taskTitleDraft : ""}
-            onTitleDraftChange={setTaskTitleDraft}
-            onStartEditTitle={onStartEditTitle}
-            onCancelTitleEdit={onCancelTitleEdit}
-            onSaveTitleFromBlur={onSaveTitleFromBlur}
-            onRequestCompleteDialog={setCompleteTarget}
-            onRequestAbandon={setAbandonTarget}
-            jumpToTask={jumpToTask}
-            onClose={() => setSelectedTaskId(null)}
-          />
+          listUi.detailPanelCollapsed ? (
+            <div className="flex h-full w-11 shrink-0 flex-col items-center border-l border-[var(--md-sys-color-outline)] bg-[var(--md-sys-color-surface-container)]/80 py-2 backdrop-blur-sm">
+              <button
+                type="button"
+                title="展开详情"
+                aria-label="展开详情"
+                className="md-btn-tonal md-focus-ring p-2"
+                onClick={() => patchListUi({ detailPanelCollapsed: false })}
+              >
+                <PanelRightOpen className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <ListTaskDetailPanel
+              task={selectedTask}
+              tags={tags}
+              folders={folders}
+              edges={edges}
+              incompleteTasks={incompleteTasks}
+              completedTasks={completedTasks}
+              isEditingTitle={editingTaskId === selectedTask.id}
+              titleDraft={editingTaskId === selectedTask.id ? taskTitleDraft : ""}
+              onTitleDraftChange={setTaskTitleDraft}
+              onStartEditTitle={onStartEditTitle}
+              onCancelTitleEdit={onCancelTitleEdit}
+              onSaveTitleFromBlur={onSaveTitleFromBlur}
+              onRequestCompleteDialog={setCompleteTarget}
+              onRequestAbandon={setAbandonTarget}
+              jumpToTask={jumpToTask}
+              onClose={() => setSelectedTaskId(null)}
+              onCollapse={() => patchListUi({ detailPanelCollapsed: true })}
+            />
+          )
         ) : (
           <ListTaskDetailEmpty />
         )}

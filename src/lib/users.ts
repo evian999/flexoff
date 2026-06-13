@@ -126,9 +126,9 @@ export async function verifyCredentials(
 }
 
 function randomInviteSegment() {
-  const a = new Uint8Array(8);
-  crypto.getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
+  const digits = new Uint8Array(8);
+  crypto.getRandomValues(digits);
+  return Array.from(digits, (b) => (b % 10).toString()).join("");
 }
 
 /** 注册用：环境变量 REGISTER_INVITE_CODES（逗号分隔）或任一已用户 inviteToken */

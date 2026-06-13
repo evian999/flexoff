@@ -66,9 +66,11 @@ export function SettingsClient() {
   const [preview, setPreview] = useState<ParsedPreview | null>(null);
   const [importDone, setImportDone] = useState<string | null>(null);
   const [copyHint, setCopyHint] = useState<string | null>(null);
+  const [inviteCopyHint, setInviteCopyHint] = useState<string | null>(null);
   const [myInviteToken, setMyInviteToken] = useState<string | null>(null);
   const [inviteLoadError, setInviteLoadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inviteCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!hydrated || loadError) return;
@@ -235,14 +237,36 @@ export function SettingsClient() {
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
               onClick={async () => {
-                await navigator.clipboard.writeText(myInviteToken);
-                setCopyHint("已复制邀请码");
-                setTimeout(() => setCopyHint(null), 2000);
+                try {
+                  await navigator.clipboard.writeText(myInviteToken);
+                  setInviteCopyHint("已复制邀请码");
+                } catch {
+                  try {
+                    const el = document.createElement("textarea");
+                    el.value = myInviteToken;
+                    el.style.position = "fixed";
+                    el.style.opacity = "0";
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(el);
+                    setInviteCopyHint("已复制邀请码");
+                  } catch {
+                    setInviteCopyHint("复制失败，请手动复制");
+                  }
+                }
+                if (inviteCopyTimer.current) clearTimeout(inviteCopyTimer.current);
+                inviteCopyTimer.current = setTimeout(() => setInviteCopyHint(null), 2000);
               }}
             >
               <Copy className="h-3.5 w-3.5" />
               复制邀请码
             </button>
+            {inviteCopyHint ? (
+              <p className={`text-xs ${inviteCopyHint.startsWith("已复制") ? "text-emerald-400/90" : "text-red-400"}`}>
+                {inviteCopyHint}
+              </p>
+            ) : null}
           </div>
         ) : (
           <p className="text-xs text-zinc-500">加载中…</p>

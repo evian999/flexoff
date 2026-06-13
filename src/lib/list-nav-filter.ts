@@ -21,23 +21,25 @@ export function filterTasksForNav(
   navFolderId: NavFolderId,
 ): Task[] {
   if (navFolderId === TODAY_NAV_KEY) {
+    const todayStart = startOfLocalDay(new Date());
     const todayEnd = endOfLocalDay(new Date());
     return tasks.filter((t) => {
       if (t.folderId === RECENT_DELETED_FOLDER_KEY) return false;
       const due = parseDue(t);
       if (!due) return false;
-      return due <= todayEnd;
+      return due >= todayStart && due <= todayEnd;
     });
   }
 
   if (navFolderId === NEXT_7_DAYS_NAV_KEY) {
     const todayStart = startOfLocalDay(new Date());
-    const weekEnd = new Date(todayStart.getTime() + 7 * 86400000 - 1);
+    const todayEnd = endOfLocalDay(new Date());
+    const past7Start = new Date(todayStart.getTime() - 7 * 86400000);
     return tasks.filter((t) => {
       if (t.folderId === RECENT_DELETED_FOLDER_KEY) return false;
       const due = parseDue(t);
       if (!due) return false;
-      return due >= todayStart && due <= weekEnd;
+      return due >= past7Start && due <= todayEnd;
     });
   }
 

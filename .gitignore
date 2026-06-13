@@ -63,3 +63,7 @@ next-env.d.ts
 # one-off API dumps (may contain private task titles)
 flex-tasks-fetched.json
 tasks-http-dump.json
+
+# agent / opencode
+.opencode/
+*.log
